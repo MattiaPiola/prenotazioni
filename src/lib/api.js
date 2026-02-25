@@ -1,0 +1,94 @@
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options,
+  })
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try {
+      const data = await res.json()
+      message = data.error || data.message || message
+    } catch (_) {}
+    const err = new Error(message)
+    err.status = res.status
+    throw err
+  }
+  const ct = res.headers.get('content-type') || ''
+  if (ct.includes('application/json')) return res.json()
+  return res
+}
+
+export const getRooms = () => apiFetch('/api/rooms')
+
+export const getRoomSlots = (roomId) => apiFetch(`/api/rooms/${roomId}/slots`)
+
+export const getRoomBookings = (roomId, dateFrom, dateTo) =>
+  apiFetch(`/api/rooms/${roomId}/bookings?date_from=${dateFrom}&date_to=${dateTo}`)
+
+export const createBooking = (data) =>
+  apiFetch('/api/bookings', { method: 'POST', body: JSON.stringify(data) })
+
+export const createRecurringRequest = (data) =>
+  apiFetch('/api/recurring-requests', { method: 'POST', body: JSON.stringify(data) })
+
+export const adminLogin = (code) =>
+  apiFetch('/api/admin/login', { method: 'POST', body: JSON.stringify({ code }) })
+
+export const adminLogout = () =>
+  apiFetch('/api/admin/logout', { method: 'POST', body: JSON.stringify({}) })
+
+export const adminGetRooms = () => apiFetch('/api/admin/rooms')
+
+export const adminCreateRoom = (name) =>
+  apiFetch('/api/admin/rooms', { method: 'POST', body: JSON.stringify({ name }) })
+
+export const adminUpdateRoom = (id, name) =>
+  apiFetch(`/api/admin/rooms/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
+
+export const adminDeleteRoom = (id) =>
+  apiFetch(`/api/admin/rooms/${id}`, { method: 'DELETE' })
+
+export const adminGetSlots = (roomId) => apiFetch(`/api/admin/rooms/${roomId}/slots`)
+
+export const adminCreateSlot = (roomId, data) =>
+  apiFetch(`/api/admin/rooms/${roomId}/slots`, { method: 'POST', body: JSON.stringify(data) })
+
+export const adminUpdateSlot = (roomId, slotId, data) =>
+  apiFetch(`/api/admin/rooms/${roomId}/slots/${slotId}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const adminDeleteSlot = (roomId, slotId) =>
+  apiFetch(`/api/admin/rooms/${roomId}/slots/${slotId}`, { method: 'DELETE' })
+
+export const adminGetRecurringRequests = (status) => {
+  const qs = status ? `?status=${status}` : ''
+  return apiFetch(`/api/admin/recurring-requests${qs}`)
+}
+
+export const adminApproveRecurring = (id) =>
+  apiFetch(`/api/admin/recurring-requests/${id}/approve`, { method: 'POST', body: JSON.stringify({}) })
+
+export const adminDenyRecurring = (id, notes) =>
+  apiFetch(`/api/admin/recurring-requests/${id}/deny`, { method: 'POST', body: JSON.stringify({ notes }) })
+
+export const adminGetBookings = ({ from, to, room_id } = {}) => {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  if (room_id) params.set('room_id', room_id)
+  return apiFetch(`/api/admin/bookings?${params}`)
+}
+
+export const adminCancelBooking = (id) =>
+  apiFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' })
+
+export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  if (room_id) params.set('room_id', room_id)
+  params.set('format', 'csv')
+  const res = await fetch(`/api/admin/bookings?${params}`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.blob()
+}
