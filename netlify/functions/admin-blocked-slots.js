@@ -53,6 +53,28 @@ export async function handler(event) {
   if (method === 'POST') {
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
+
+    // Bulk insert: { room_id, slots: [{ room_slot_id, date, reason? }, ...] }
+    if (Array.isArray(body.slots)) {
+      const { room_id, slots } = body
+      if (!room_id || !slots.length) return json(400, { error: 'room_id and slots are required' })
+      const records = slots.map(({ room_slot_id, date, reason }) => {
+        if (!room_slot_id || !date) return null
+        return { room_id, room_slot_id, date, reason: reason || null }
+      })
+      if (records.some((r) => r === null)) return json(400, { error: 'Each slot requires room_slot_id and date' })
+      const { data, error } = await supabase
+        .from('blocked_slots')
+        .insert(records)
+        .select()
+      if (error) {
+        if (error.code === '23505') return json(409, { error: 'One or more slots already blocked for this date' })
+        return json(500, { error: error.message })
+      }
+      return json(201, data)
+    }
+
+    // Single insert
     const { room_id, room_slot_id, date, reason } = body
     if (!room_id || !room_slot_id || !date) return json(400, { error: 'room_id, room_slot_id and date are required' })
     const { data, error } = await supabase
