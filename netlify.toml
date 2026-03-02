@@ -1,0 +1,94 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "vite"
+  port = 3000
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/admin/login"
+  to = "/.netlify/functions/admin-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/logout"
+  to = "/.netlify/functions/admin-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/rooms/*/slots/*"
+  to = "/.netlify/functions/admin-slots"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/rooms/*/slots"
+  to = "/.netlify/functions/admin-slots"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/rooms/*"
+  to = "/.netlify/functions/admin-rooms"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/rooms"
+  to = "/.netlify/functions/admin-rooms"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/recurring-requests/*"
+  to = "/.netlify/functions/admin-recurring"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/recurring-requests"
+  to = "/.netlify/functions/admin-recurring"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/bookings/*"
+  to = "/.netlify/functions/admin-bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/bookings"
+  to = "/.netlify/functions/admin-bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/rooms/*/slots"
+  to = "/.netlify/functions/room-slots"
+  status = 200
+
+[[redirects]]
+  from = "/api/rooms/*/bookings"
+  to = "/.netlify/functions/room-bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/rooms"
+  to = "/.netlify/functions/rooms"
+  status = 200
+
+[[redirects]]
+  from = "/api/bookings/*"
+  to = "/.netlify/functions/bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/bookings"
+  to = "/.netlify/functions/bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/recurring-requests"
+  to = "/.netlify/functions/recurring-requests"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
