@@ -55,11 +55,18 @@ export async function handler(event) {
   if (method === 'POST') {
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
-    const { start_time, end_time, label, sort_order } = body
+    const { start_time, end_time, label, sort_order, max_bookings } = body
     if (!start_time || !end_time) return json(400, { error: 'start_time and end_time are required' })
     const { data, error } = await supabase
       .from('room_slots')
-      .insert({ room_id: roomId, start_time, end_time, label: label || null, sort_order: sort_order || 0 })
+      .insert({
+        room_id: roomId,
+        start_time,
+        end_time,
+        label: label || null,
+        sort_order: sort_order || 0,
+        max_bookings: parseInt(max_bookings, 10) || 1,
+      })
       .select()
       .single()
     if (error) return json(500, { error: error.message })
@@ -75,6 +82,7 @@ export async function handler(event) {
     if (body.end_time !== undefined) updates.end_time = body.end_time
     if (body.label !== undefined) updates.label = body.label || null
     if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10) || 0
+    if (body.max_bookings !== undefined) updates.max_bookings = parseInt(body.max_bookings, 10) || 1
     const { data, error } = await supabase
       .from('room_slots')
       .update(updates)

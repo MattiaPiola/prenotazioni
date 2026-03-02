@@ -7,7 +7,7 @@ import {
   adminDeleteSlot,
 } from '../lib/api.js'
 
-const emptyForm = { start_time: '', end_time: '', label: '', sort_order: 0 }
+const emptyForm = { start_time: '', end_time: '', label: '', sort_order: 0, max_bookings: 1 }
 
 export default function AdminSlots() {
   const { id: roomId } = useParams()
@@ -38,6 +38,7 @@ export default function AdminSlots() {
         end_time: form.end_time,
         label: form.label || null,
         sort_order: parseInt(form.sort_order, 10) || 0,
+        max_bookings: parseInt(form.max_bookings, 10) || 1,
       })
       setForm(emptyForm)
       load()
@@ -55,6 +56,7 @@ export default function AdminSlots() {
         end_time: editForm.end_time,
         label: editForm.label || null,
         sort_order: parseInt(editForm.sort_order, 10) || 0,
+        max_bookings: parseInt(editForm.max_bookings, 10) || 1,
       })
       setEditId(null)
       load()
@@ -126,6 +128,15 @@ export default function AdminSlots() {
                   min="0"
                 />
               </div>
+              <div className="form-group">
+                <label>Max prenotazioni per slot</label>
+                <input
+                  type="number"
+                  value={form.max_bookings}
+                  onChange={(e) => setForm({ ...form, max_bookings: e.target.value })}
+                  min="1"
+                />
+              </div>
             </div>
             <button type="submit" className="btn btn-primary" disabled={adding}>
               {adding ? 'Aggiunta...' : '+ Aggiungi Orario'}
@@ -150,6 +161,7 @@ export default function AdminSlots() {
                     <th>Fine</th>
                     <th>Etichetta</th>
                     <th>Ordine</th>
+                    <th>Max prenotazioni</th>
                     <th>Azioni</th>
                   </tr>
                 </thead>
@@ -162,6 +174,7 @@ export default function AdminSlots() {
                           <td><input type="time" value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} /></td>
                           <td><input type="text" value={editForm.label} onChange={(e) => setEditForm({ ...editForm, label: e.target.value })} placeholder="Etichetta" /></td>
                           <td><input type="number" value={editForm.sort_order} onChange={(e) => setEditForm({ ...editForm, sort_order: e.target.value })} style={{ width: '70px' }} /></td>
+                          <td><input type="number" value={editForm.max_bookings} onChange={(e) => setEditForm({ ...editForm, max_bookings: e.target.value })} min="1" style={{ width: '70px' }} /></td>
                           <td>
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                               <button className="btn btn-success btn-sm" onClick={() => handleUpdate(slot.id)}>✓ Salva</button>
@@ -175,11 +188,12 @@ export default function AdminSlots() {
                           <td>{slot.end_time}</td>
                           <td>{slot.label || <span style={{ color: 'var(--gray-500)' }}>—</span>}</td>
                           <td>{slot.sort_order}</td>
+                          <td>{slot.max_bookings || 1}</td>
                           <td>
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                               <button
                                 className="btn btn-secondary btn-sm"
-                                onClick={() => { setEditId(slot.id); setEditForm({ start_time: slot.start_time, end_time: slot.end_time, label: slot.label || '', sort_order: slot.sort_order }) }}
+                                onClick={() => { setEditId(slot.id); setEditForm({ start_time: slot.start_time, end_time: slot.end_time, label: slot.label || '', sort_order: slot.sort_order, max_bookings: slot.max_bookings || 1 }) }}
                               >
                                 ✏️ Modifica
                               </button>

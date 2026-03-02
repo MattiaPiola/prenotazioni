@@ -43,8 +43,11 @@ export const adminGetRooms = () => apiFetch('/api/admin/rooms')
 export const adminCreateRoom = (name) =>
   apiFetch('/api/admin/rooms', { method: 'POST', body: JSON.stringify({ name }) })
 
-export const adminUpdateRoom = (id, name) =>
-  apiFetch(`/api/admin/rooms/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
+export const adminUpdateRoom = (id, data) =>
+  apiFetch(`/api/admin/rooms/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const adminDuplicateRoom = (id) =>
+  apiFetch(`/api/admin/rooms/${id}/duplicate`, { method: 'POST', body: JSON.stringify({}) })
 
 export const adminDeleteRoom = (id) =>
   apiFetch(`/api/admin/rooms/${id}`, { method: 'DELETE' })
@@ -81,6 +84,30 @@ export const adminGetBookings = ({ from, to, room_id } = {}) => {
 
 export const adminCancelBooking = (id) =>
   apiFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' })
+
+export const adminGetBlockedSlots = ({ room_id, date_from, date_to } = {}) => {
+  const params = new URLSearchParams()
+  if (room_id) params.set('room_id', room_id)
+  if (date_from) params.set('date_from', date_from)
+  if (date_to) params.set('date_to', date_to)
+  return apiFetch(`/api/admin/blocked-slots?${params}`)
+}
+
+export const adminBlockSlot = (data) =>
+  apiFetch('/api/admin/blocked-slots', { method: 'POST', body: JSON.stringify(data) })
+
+export const adminUnblockSlot = (id) =>
+  apiFetch(`/api/admin/blocked-slots/${id}`, { method: 'DELETE' })
+
+export const getRoomBlockedSlots = (roomId, dateFrom, dateTo) => {
+  const params = new URLSearchParams()
+  if (dateFrom) params.set('date_from', dateFrom)
+  if (dateTo) params.set('date_to', dateTo)
+  return apiFetch(`/api/rooms/${roomId}/blocked-slots?${params}`)
+}
+
+export const cancelBooking = (id) =>
+  apiFetch(`/api/bookings/${id}`, { method: 'DELETE' })
 
 export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
   const params = new URLSearchParams()

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { getRoomSlots, getRoomBookings, getRooms } from '../lib/api.js'
+import { getRoomSlots, getRoomBookings, getRooms, getRoomBlockedSlots, cancelBooking } from '../lib/api.js'
 import { getWeekDates, formatDate, formatDisplayDate, DAY_NAMES } from '../lib/dates.js'
 
 export default function WeekView() {
@@ -12,6 +12,7 @@ export default function WeekView() {
   const [room, setRoom] = useState(null)
   const [slots, setSlots] = useState([])
   const [bookings, setBookings] = useState([])
+  const [blockedSlots, setBlockedSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -19,32 +20,55 @@ export default function WeekView() {
   const dateFrom = formatDate(weekDates[0])
   const dateTo = formatDate(weekDates[6])
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true)
     setError(null)
     Promise.all([
       getRooms().then((rooms) => rooms.find((r) => r.id === roomId)),
       getRoomSlots(roomId),
       getRoomBookings(roomId, dateFrom, dateTo),
+      getRoomBlockedSlots(roomId, dateFrom, dateTo),
     ])
-      .then(([roomData, slotsData, bookingsData]) => {
+      .then(([roomData, slotsData, bookingsData, blockedData]) => {
         setRoom(roomData || null)
         setSlots(slotsData)
         setBookings(bookingsData)
+        setBlockedSlots(blockedData)
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [roomId, dateFrom, dateTo])
+  }
 
-  const getBooking = (slotId, date) =>
-    bookings.find((b) => b.room_slot_id === slotId && b.date === date)
+  useEffect(() => { load() }, [roomId, dateFrom, dateTo])
+
+  const getBookingsForSlot = (slotId, date) =>
+    bookings.filter((b) => b.room_slot_id === slotId && b.date === date)
+
+  const isBlocked = (slotId, date) =>
+    blockedSlots.some((b) => b.room_slot_id === slotId && b.date === date)
 
   const handleWeekChange = (offset) => {
     if (offset < 0 || offset > 1) return
     setSearchParams({ week: offset })
   }
 
+  const handleCancelBooking = async (bookingId) => {
+    if (!confirm('Vuoi cancellare questa prenotazione?')) return
+    try {
+      await cancelBooking(bookingId)
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const weekLabel = `${formatDisplayDate(weekDates[0])} – ${formatDisplayDate(weekDates[6])}`
+
+  // Determine which day columns to show
+  const visibleWeekdays = room?.visible_weekdays ?? [0, 1, 2, 3, 4]
+  const visibleDayIndices = weekDates
+    .map((_, i) => i)
+    .filter((i) => visibleWeekdays.includes(i))
 
   return (
     <>
@@ -65,6 +89,21 @@ export default function WeekView() {
 
         {!loading && !error && (
           <>
+            {/* Public announcement */}
+            {room?.announcement && (
+              <div
+                className="card"
+                style={{
+                  marginBottom: '1rem',
+                  background: '#fffbeb',
+                  borderLeft: '4px solid #f59e0b',
+                  padding: '0.75rem 1rem',
+                }}
+              >
+                <strong>📢 Avviso:</strong> {room.announcement}
+              </div>
+            )}
+
             <div className="week-nav">
               <button
                 className="btn btn-secondary btn-sm"
@@ -89,63 +128,104 @@ export default function WeekView() {
               <div className="week-grid-wrapper">
                 <div className="week-grid">
                   {/* Header */}
-                  <div className="week-grid-header">
+                  <div
+                    className="week-grid-header"
+                    style={{ gridTemplateColumns: `100px repeat(${visibleDayIndices.length}, 1fr)` }}
+                  >
                     <div className="week-grid-header-cell">Ora</div>
-                    {weekDates.map((date, i) => (
+                    {visibleDayIndices.map((i) => (
                       <div key={i} className="week-grid-header-cell">
                         <div>{DAY_NAMES[i].slice(0, 3)}</div>
                         <div style={{ fontWeight: 400, opacity: 0.85, fontSize: '0.72rem' }}>
-                          {date.getDate()}/{date.getMonth() + 1}
+                          {weekDates[i].getDate()}/{weekDates[i].getMonth() + 1}
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {/* Rows */}
-                  {slots.map((slot) => (
-                    <div key={slot.id} className="week-grid-row">
-                      <div className="week-grid-time">
-                        <div>
-                          <div>{slot.start_time}</div>
-                          <div style={{ opacity: 0.7, fontSize: '0.68rem' }}>{slot.end_time}</div>
-                          {slot.label && (
-                            <div style={{ fontWeight: 400, fontSize: '0.68rem', marginTop: '2px' }}>
-                              {slot.label}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {weekDates.map((date, dayIdx) => {
-                        const dateStr = formatDate(date)
-                        const booking = getBooking(slot.id, dateStr)
-                        const isWeekend = dayIdx >= 5
-                        return (
-                          <div
-                            key={dayIdx}
-                            className={`slot-cell ${booking ? 'slot-booked' : isWeekend ? 'slot-weekend' : 'slot-available'}`}
-                          >
-                            {booking ? (
-                              <div className="slot-booked-info">
-                                <div className="slot-booked-teacher">{booking.teacher_name}</div>
-                                <div className="slot-booked-class">{booking.class_name}</div>
+                  {slots.map((slot) => {
+                    const maxBookings = slot.max_bookings || 1
+                    return (
+                      <div
+                        key={slot.id}
+                        className="week-grid-row"
+                        style={{ gridTemplateColumns: `100px repeat(${visibleDayIndices.length}, 1fr)` }}
+                      >
+                        <div className="week-grid-time">
+                          <div>
+                            <div>{slot.start_time}</div>
+                            <div style={{ opacity: 0.7, fontSize: '0.68rem' }}>{slot.end_time}</div>
+                            {slot.label && (
+                              <div style={{ fontWeight: 400, fontSize: '0.68rem', marginTop: '2px' }}>
+                                {slot.label}
                               </div>
-                            ) : !isWeekend ? (
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={() =>
-                                  navigate(
-                                    `/room/${roomId}/book?date=${dateStr}&slotId=${slot.id}`
-                                  )
-                                }
-                              >
-                                Prenota
-                              </button>
-                            ) : null}
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  ))}
+                        </div>
+                        {visibleDayIndices.map((dayIdx) => {
+                          const dateStr = formatDate(weekDates[dayIdx])
+                          const slotBookings = getBookingsForSlot(slot.id, dateStr)
+                          const blocked = isBlocked(slot.id, dateStr)
+                          const isFull = slotBookings.length >= maxBookings
+
+                          if (blocked) {
+                            return (
+                              <div key={dayIdx} className="slot-cell slot-weekend">
+                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-700)' }}>🔒 Non disponibile</div>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div
+                              key={dayIdx}
+                              className={`slot-cell ${isFull ? 'slot-booked' : slotBookings.length > 0 ? 'slot-partial' : 'slot-available'}`}
+                            >
+                              {slotBookings.length > 0 && (
+                                <div className="slot-booked-info">
+                                  {slotBookings.map((b) => (
+                                    <div key={b.id} style={{ marginBottom: '4px' }}>
+                                      <div className="slot-booked-teacher">{b.teacher_name}</div>
+                                      <div className="slot-booked-class">{b.class_name}</div>
+                                      {room?.allow_user_edit && (
+                                        <button
+                                          onClick={() => handleCancelBooking(b.id)}
+                                          style={{
+                                            background: 'none', border: 'none', cursor: 'pointer',
+                                            color: 'var(--danger)', fontSize: '0.7rem', padding: '1px 0',
+                                          }}
+                                        >
+                                          ✕ Cancella
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {maxBookings > 1 && (
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--gray-700)', marginTop: '2px' }}>
+                                      {slotBookings.length}/{maxBookings} prenotaz.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {!isFull && (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() =>
+                                    navigate(
+                                      `/room/${roomId}/book?date=${dateStr}&slotId=${slot.id}`
+                                    )
+                                  }
+                                >
+                                  Prenota
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

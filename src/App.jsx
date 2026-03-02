@@ -9,6 +9,7 @@ import AdminRooms from './pages/AdminRooms.jsx'
 import AdminSlots from './pages/AdminSlots.jsx'
 import AdminRecurring from './pages/AdminRecurring.jsx'
 import AdminBookings from './pages/AdminBookings.jsx'
+import AdminCalendar from './pages/AdminCalendar.jsx'
 
 function AdminGuard({ children }) {
   const auth = localStorage.getItem('admin_authenticated')
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/admin/rooms/:id/slots" element={<AdminGuard><AdminSlots /></AdminGuard>} />
         <Route path="/admin/recurring" element={<AdminGuard><AdminRecurring /></AdminGuard>} />
         <Route path="/admin/bookings" element={<AdminGuard><AdminBookings /></AdminGuard>} />
+        <Route path="/admin/calendar" element={<AdminGuard><AdminCalendar /></AdminGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

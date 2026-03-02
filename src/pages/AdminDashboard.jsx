@@ -16,6 +16,7 @@ export default function AdminDashboard() {
     { icon: '🏫', title: 'Gestione Aule', desc: 'Aggiungi, modifica, elimina aule', to: '/admin/rooms' },
     { icon: '📋', title: 'Richieste Ricorrenti', desc: 'Approva o nega richieste', to: '/admin/recurring' },
     { icon: '📅', title: 'Prenotazioni', desc: 'Visualizza e gestisci prenotazioni', to: '/admin/bookings' },
+    { icon: '🗓️', title: 'Calendario', desc: 'Visualizza calendario, blocca slot', to: '/admin/calendar' },
   ]
 
   return (

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
+import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import {
   adminGetRooms,
   adminCreateRoom,
   adminUpdateRoom,
   adminDeleteRoom,
+  adminDuplicateRoom,
 } from '../lib/api.js'
+
+const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 
 export default function AdminRooms() {
   const [rooms, setRooms] = useState([])
@@ -15,6 +19,9 @@ export default function AdminRooms() {
   const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState(null)
   const [editName, setEditName] = useState('')
+  const [settingsId, setSettingsId] = useState(null)
+  const [settingsForm, setSettingsForm] = useState({})
+  const [savingSettings, setSavingSettings] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -44,7 +51,7 @@ export default function AdminRooms() {
   const handleUpdate = async (id) => {
     if (!editName.trim()) return
     try {
-      await adminUpdateRoom(id, editName.trim())
+      await adminUpdateRoom(id, { name: editName.trim() })
       setEditId(null)
       load()
     } catch (err) {
@@ -59,6 +66,50 @@ export default function AdminRooms() {
       load()
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const handleDuplicate = async (id, name) => {
+    if (!confirm(`Duplicare l'aula "${name}" con tutti i suoi orari?`)) return
+    try {
+      await adminDuplicateRoom(id)
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const openSettings = (room) => {
+    setSettingsId(room.id)
+    setSettingsForm({
+      announcement: room.announcement || '',
+      allow_user_edit: room.allow_user_edit || false,
+      visible_weekdays: room.visible_weekdays || [0, 1, 2, 3, 4],
+    })
+  }
+
+  const toggleWeekday = (day) => {
+    const current = settingsForm.visible_weekdays || []
+    const updated = current.includes(day)
+      ? current.filter((d) => d !== day)
+      : [...current, day].sort((a, b) => a - b)
+    setSettingsForm({ ...settingsForm, visible_weekdays: updated })
+  }
+
+  const handleSaveSettings = async (id) => {
+    setSavingSettings(true)
+    try {
+      await adminUpdateRoom(id, {
+        announcement: settingsForm.announcement || null,
+        allow_user_edit: settingsForm.allow_user_edit,
+        visible_weekdays: settingsForm.visible_weekdays,
+      })
+      setSettingsId(null)
+      load()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSavingSettings(false)
     }
   }
 
@@ -112,53 +163,133 @@ export default function AdminRooms() {
                 </thead>
                 <tbody>
                   {rooms.map((room) => (
-                    <tr key={room.id}>
-                      <td>
-                        {editId === room.id ? (
-                          <div className="inline-edit">
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleUpdate(room.id)
-                                if (e.key === 'Escape') setEditId(null)
-                              }}
-                              autoFocus
-                            />
-                            <button className="btn btn-success btn-sm" onClick={() => handleUpdate(room.id)}>
-                              ✓ Salva
+                    <Fragment key={room.id}>
+                      <tr>
+                        <td>
+                          {editId === room.id ? (
+                            <div className="inline-edit">
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleUpdate(room.id)
+                                  if (e.key === 'Escape') setEditId(null)
+                                }}
+                                autoFocus
+                              />
+                              <button className="btn btn-success btn-sm" onClick={() => handleUpdate(room.id)}>
+                                ✓ Salva
+                              </button>
+                              <button className="btn btn-secondary btn-sm" onClick={() => setEditId(null)}>
+                                Annulla
+                              </button>
+                            </div>
+                          ) : (
+                            <strong>{room.name}</strong>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <Link to={`/admin/rooms/${room.id}/slots`} className="btn btn-outline btn-sm">
+                              ⏰ Orari
+                            </Link>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => settingsId === room.id ? setSettingsId(null) : openSettings(room)}
+                            >
+                              ⚙️ Impostazioni
                             </button>
-                            <button className="btn btn-secondary btn-sm" onClick={() => setEditId(null)}>
-                              Annulla
-                            </button>
-                          </div>
-                        ) : (
-                          <strong>{room.name}</strong>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <Link to={`/admin/rooms/${room.id}/slots`} className="btn btn-outline btn-sm">
-                            ⏰ Orari
-                          </Link>
-                          {editId !== room.id && (
+                            {editId !== room.id && (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => { setEditId(room.id); setEditName(room.name) }}
+                              >
+                                ✏️ Modifica
+                              </button>
+                            )}
                             <button
                               className="btn btn-secondary btn-sm"
-                              onClick={() => { setEditId(room.id); setEditName(room.name) }}
+                              onClick={() => handleDuplicate(room.id, room.name)}
                             >
-                              ✏️ Modifica
+                              📋 Duplica
                             </button>
-                          )}
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(room.id, room.name)}
-                          >
-                            🗑️ Elimina
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDelete(room.id, room.name)}
+                            >
+                              🗑️ Elimina
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {settingsId === room.id && (
+                        <tr key={`settings-${room.id}`}>
+                          <td colSpan={2} style={{ background: 'var(--gray-100)', padding: '1rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '600px' }}>
+                              <div className="form-group">
+                                <label>Annuncio pubblico (mostrato nel calendario)</label>
+                                <textarea
+                                  rows={3}
+                                  value={settingsForm.announcement}
+                                  onChange={(e) => setSettingsForm({ ...settingsForm, announcement: e.target.value })}
+                                  placeholder="Es. Aula disponibile solo al mattino"
+                                  style={{ resize: 'vertical' }}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={settingsForm.allow_user_edit}
+                                    onChange={(e) => setSettingsForm({ ...settingsForm, allow_user_edit: e.target.checked })}
+                                    style={{ width: 'auto' }}
+                                  />
+                                  Consenti agli utenti di cancellare le proprie prenotazioni
+                                </label>
+                              </div>
+                              <div className="form-group">
+                                <label>Giorni visibili nel calendario</label>
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                                  {DAY_LABELS.map((label, i) => (
+                                    <label
+                                      key={i}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                        padding: '0.3rem 0.6rem', border: '1px solid var(--gray-300)',
+                                        borderRadius: '6px', cursor: 'pointer',
+                                        background: (settingsForm.visible_weekdays || []).includes(i) ? 'var(--primary)' : 'white',
+                                        color: (settingsForm.visible_weekdays || []).includes(i) ? 'white' : 'inherit',
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={(settingsForm.visible_weekdays || []).includes(i)}
+                                        onChange={() => toggleWeekday(i)}
+                                        style={{ display: 'none' }}
+                                      />
+                                      {label}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => handleSaveSettings(room.id)}
+                                  disabled={savingSettings}
+                                >
+                                  {savingSettings ? 'Salvataggio...' : '✓ Salva impostazioni'}
+                                </button>
+                                <button className="btn btn-secondary btn-sm" onClick={() => setSettingsId(null)}>
+                                  Annulla
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
