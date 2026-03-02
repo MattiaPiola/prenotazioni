@@ -168,6 +168,7 @@ export default function WeekView() {
                           const slotBookings = getBookingsForSlot(slot.id, dateStr)
                           const blocked = isBlocked(slot.id, dateStr)
                           const isFull = slotBookings.length >= maxBookings
+                          const allRecurring = slotBookings.length > 0 && slotBookings.every((b) => b.source === 'recurring')
 
                           if (blocked) {
                             return (
@@ -180,13 +181,15 @@ export default function WeekView() {
                           return (
                             <div
                               key={dayIdx}
-                              className={`slot-cell ${isFull ? 'slot-booked' : slotBookings.length > 0 ? 'slot-partial' : 'slot-available'}`}
+                              className={`slot-cell ${allRecurring ? 'slot-recurring' : isFull ? 'slot-booked' : slotBookings.length > 0 ? 'slot-partial' : 'slot-available'}`}
                             >
                               {slotBookings.length > 0 && (
                                 <div className="slot-booked-info">
                                   {slotBookings.map((b) => (
                                     <div key={b.id} style={{ marginBottom: '4px' }}>
-                                      <div className="slot-booked-teacher">{b.teacher_name}</div>
+                                      <div className="slot-booked-teacher">
+                                        {b.source === 'recurring' && '🔁 '}{b.teacher_name}
+                                      </div>
                                       <div className="slot-booked-class">{b.class_name}</div>
                                       {room?.allow_user_edit && (
                                         <button
@@ -234,6 +237,22 @@ export default function WeekView() {
               <Link to={`/room/${roomId}/recurring`} className="btn btn-outline">
                 🔁 Richiedi prenotazione ricorrente
               </Link>
+            </div>
+
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.78rem', color: 'var(--gray-700)' }}>
+              <span style={{ fontWeight: 600 }}>Legenda:</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '12px', height: '12px', background: 'var(--primary-light)', borderRadius: '2px', display: 'inline-block', border: '1px solid var(--gray-300)' }} />
+                Prenotato
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '12px', height: '12px', background: '#fef9c3', borderRadius: '2px', display: 'inline-block', border: '1px solid var(--gray-300)' }} />
+                Parzialmente prenotato
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '12px', height: '12px', background: 'var(--recurring-light)', borderRadius: '2px', display: 'inline-block', border: '1px solid var(--gray-300)' }} />
+                🔁 Prenotazione ricorrente
+              </span>
             </div>
           </>
         )}

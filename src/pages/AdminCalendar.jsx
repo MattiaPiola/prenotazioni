@@ -254,11 +254,12 @@ export default function AdminCalendar() {
                     const isBlocked = !!block
                     const maxBookings = slot.max_bookings || 1
                     const isFull = !isBlocked && slotBookings.length >= maxBookings
+                    const allRecurring = slotBookings.length > 0 && slotBookings.every((b) => b.source === 'recurring')
 
                     return (
                       <div
                         key={dayIdx}
-                        className={`slot-cell ${isBlocked ? 'slot-weekend' : slotBookings.length > 0 ? (isFull ? 'slot-booked' : 'slot-partial') : 'slot-available'}`}
+                        className={`slot-cell ${isBlocked ? 'slot-weekend' : allRecurring ? 'slot-recurring' : slotBookings.length > 0 ? (isFull ? 'slot-booked' : 'slot-partial') : 'slot-available'}`}
                         style={{ padding: '0.4rem', verticalAlign: 'top', minHeight: '3.5rem' }}
                       >
                         {isBlocked ? (
@@ -280,14 +281,16 @@ export default function AdminCalendar() {
                               <div
                                 key={b.id}
                                 style={{
-                                  background: 'var(--primary-light)',
+                                  background: b.source === 'recurring' ? 'var(--recurring-light)' : 'var(--primary-light)',
                                   borderRadius: '4px',
                                   padding: '2px 5px',
                                   marginBottom: '3px',
                                   fontSize: '0.72rem',
                                 }}
                               >
-                                <div style={{ fontWeight: 600 }}>{b.teacher_name}</div>
+                                <div style={{ fontWeight: 600, color: b.source === 'recurring' ? 'var(--recurring)' : undefined }}>
+                                  {b.source === 'recurring' && '🔁 '}{b.teacher_name}
+                                </div>
                                 <div style={{ opacity: 0.8 }}>{b.class_name}</div>
                                 <button
                                   onClick={() => handleCancelBooking(b.id)}
