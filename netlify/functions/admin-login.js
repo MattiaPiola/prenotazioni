@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { setSessionCookie } from './_auth.js'
+import { withErrorHandling } from './_handler.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const CORS = {
   'Access-Control-Allow-Credentials': 'true',
 }
 
-export async function handler(event) {
+export const handler = withErrorHandling(async function (event) {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS }
   }
@@ -59,4 +60,4 @@ export async function handler(event) {
     },
     body: JSON.stringify({ ok: true }),
   }
-}
+})

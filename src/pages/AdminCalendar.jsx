@@ -102,6 +102,33 @@ export default function AdminCalendar() {
     }
   }
 
+  const handleLockDay = async (dayIdx) => {
+    const dateStr = formatDate(weekDates[dayIdx])
+    const unlockedSlots = slots.filter((slot) => !getBlock(slot.id, dateStr))
+    if (unlockedSlots.length === 0) return
+    try {
+      await adminBlockSlot({
+        room_id: selectedRoom,
+        slots: unlockedSlots.map((slot) => ({ room_slot_id: slot.id, date: dateStr })),
+      })
+      reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleUnlockDay = async (dayIdx) => {
+    const dateStr = formatDate(weekDates[dayIdx])
+    const blockedForDay = blocked.filter((b) => b.date === dateStr)
+    if (blockedForDay.length === 0) return
+    try {
+      await Promise.all(blockedForDay.map((b) => adminUnblockSlot(b.id)))
+      reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   const selectedRoomData = rooms.find((r) => r.id === selectedRoom)
   const visibleDays = selectedRoomData?.visible_weekdays ?? [0, 1, 2, 3, 4, 5, 6]
   const visibleDayIndices = weekDates
@@ -148,7 +175,7 @@ export default function AdminCalendar() {
         </div>
 
         <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '1rem' }}>
-          💡 Clicca su uno slot libero/bloccato per bloccare/sbloccare. Clicca su una prenotazione per cancellarla.
+          💡 Clicca su uno slot libero/bloccato per bloccare/sbloccare. Clicca su una prenotazione per cancellarla. Usa 🔒/🔓 nell'intestazione per bloccare/sbloccare l'intera giornata.
         </p>
 
         {loading ? (
@@ -164,14 +191,37 @@ export default function AdminCalendar() {
                 style={{ gridTemplateColumns: `100px repeat(${visibleDayIndices.length}, 1fr)` }}
               >
                 <div className="week-grid-header-cell">Ora</div>
-                {visibleDayIndices.map((i) => (
-                  <div key={i} className="week-grid-header-cell">
-                    <div>{DAY_NAMES[i].slice(0, 3)}</div>
-                    <div style={{ fontWeight: 400, opacity: 0.85, fontSize: '0.72rem' }}>
-                      {weekDates[i].getDate()}/{weekDates[i].getMonth() + 1}
+                {visibleDayIndices.map((i) => {
+                  const dateStr = formatDate(weekDates[i])
+                  const dayBlocked = blocked.filter((b) => b.date === dateStr)
+                  const allLocked = slots.length > 0 && dayBlocked.length >= slots.length
+                  return (
+                    <div key={i} className="week-grid-header-cell">
+                      <div>{DAY_NAMES[i].slice(0, 3)}</div>
+                      <div style={{ fontWeight: 400, opacity: 0.85, fontSize: '0.72rem' }}>
+                        {weekDates[i].getDate()}/{weekDates[i].getMonth() + 1}
+                      </div>
+                      {slots.length > 0 && (
+                        <button
+                          title={allLocked ? 'Sblocca giornata' : 'Blocca giornata'}
+                          onClick={() => allLocked ? handleUnlockDay(i) : handleLockDay(i)}
+                          style={{
+                            marginTop: '4px',
+                            background: 'none',
+                            border: '1px solid currentColor',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.65rem',
+                            padding: '1px 5px',
+                            opacity: 0.8,
+                          }}
+                        >
+                          {allLocked ? '🔓' : '🔒'}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Rows */}

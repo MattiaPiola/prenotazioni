@@ -14,6 +14,7 @@ async function apiFetch(path, options = {}) {
     err.status = res.status
     throw err
   }
+  if (res.status === 204) return null
   const ct = res.headers.get('content-type') || ''
   if (ct.includes('application/json')) return res.json()
   return res

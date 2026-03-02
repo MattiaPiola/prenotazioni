@@ -1,5 +1,6 @@
 import { getSupabase } from './_supabase.js'
 import { requireAdmin } from './_auth.js'
+import { withErrorHandling } from './_handler.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +25,7 @@ function escapeCsv(val) {
   return str
 }
 
-export async function handler(event) {
+export const handler = withErrorHandling(async function (event) {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS }
   }
@@ -91,4 +92,4 @@ export async function handler(event) {
   }
 
   return json(405, { error: 'Method not allowed' })
-}
+})
