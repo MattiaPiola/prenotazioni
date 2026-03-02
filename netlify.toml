@@ -19,6 +19,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/rooms/*/duplicate"
+  to = "/.netlify/functions/admin-rooms"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/rooms/*/slots/*"
   to = "/.netlify/functions/admin-slots"
   status = 200
@@ -56,6 +61,21 @@
 [[redirects]]
   from = "/api/admin/bookings"
   to = "/.netlify/functions/admin-bookings"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/blocked-slots/*"
+  to = "/.netlify/functions/admin-blocked-slots"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/blocked-slots"
+  to = "/.netlify/functions/admin-blocked-slots"
+  status = 200
+
+[[redirects]]
+  from = "/api/rooms/*/blocked-slots"
+  to = "/.netlify/functions/room-blocked-slots"
   status = 200
 
 [[redirects]]

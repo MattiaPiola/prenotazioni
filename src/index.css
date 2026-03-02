@@ -481,6 +481,10 @@ textarea {
   background: var(--primary-light);
 }
 
+.slot-partial {
+  background: #fef9c3;
+}
+
 .slot-booked-info {
   text-align: center;
   font-size: 0.72rem;
