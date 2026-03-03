@@ -30,8 +30,8 @@ function RequestCard({ req, onRefresh }) {
     setError(null)
     try {
       const res = await adminApproveRecurring(req.id)
-      if (res.conflicts && res.conflicts.length > 0) {
-        setConflicts(res.conflicts)
+      if (res.overwritten && res.overwritten.length > 0) {
+        setConflicts(res.overwritten)
       }
       onRefresh()
     } catch (err) {
@@ -83,7 +83,7 @@ function RequestCard({ req, onRefresh }) {
       {error && <div className="error-msg" style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}
       {conflicts && conflicts.length > 0 && (
         <div className="success-msg" style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
-          ✅ Approvata. Conflitti saltati: {conflicts.join(', ')}
+          ✅ Approvata. Prenotazioni sovrascritte: {conflicts.join(', ')}
         </div>
       )}
 

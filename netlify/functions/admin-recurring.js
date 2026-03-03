@@ -75,21 +75,34 @@ export const handler = withErrorHandling(async function (event) {
       recurring_request_id: id,
     }))
 
-    const conflicts = []
+    const overwritten = []
     const inserted = []
 
     for (const booking of bookingsToInsert) {
+      // Delete any existing booking for this slot/date so the recurring one overwrites it
+      const { data: existing, error: findErr } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('room_id', booking.room_id)
+        .eq('room_slot_id', booking.room_slot_id)
+        .eq('date', booking.date)
+      if (findErr) return json(500, { error: findErr.message })
+      if (existing && existing.length > 0) {
+        const { error: deleteErr } = await supabase
+          .from('bookings')
+          .delete()
+          .in('id', existing.map((b) => b.id))
+        if (deleteErr) return json(500, { error: deleteErr.message })
+        overwritten.push(booking.date)
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .insert(booking)
         .select()
         .single()
       if (error) {
-        if (error.code === '23505') {
-          conflicts.push(booking.date)
-        } else {
-          return json(500, { error: error.message })
-        }
+        return json(500, { error: error.message })
       } else {
         inserted.push(data)
       }
@@ -105,7 +118,7 @@ export const handler = withErrorHandling(async function (event) {
     return json(200, {
       ok: true,
       inserted: inserted.length,
-      conflicts,
+      overwritten,
     })
   }
 
