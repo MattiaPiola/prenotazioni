@@ -64,7 +64,17 @@ export const handler = withErrorHandling(async function (event) {
       }
     }
 
-    // Insert bookings, ignoring conflicts
+    // Fetch max_bookings for this slot
+    const { data: slotData, error: slotErr } = await supabase
+      .from('room_slots')
+      .select('max_bookings')
+      .eq('id', req.room_slot_id)
+      .single()
+    if (slotErr) return json(500, { error: slotErr.message })
+    if (!slotData) return json(404, { error: 'Slot not found' })
+    const maxBookings = slotData.max_bookings || 1
+
+    // Insert bookings, overwriting only when the slot is already full
     const bookingsToInsert = dates.map((date) => ({
       room_id: req.room_id,
       room_slot_id: req.room_slot_id,
@@ -79,7 +89,7 @@ export const handler = withErrorHandling(async function (event) {
     const inserted = []
 
     for (const booking of bookingsToInsert) {
-      // Delete any existing booking for this slot/date so the recurring one overwrites it
+      // Check existing bookings for this slot/date
       const { data: existing, error: findErr } = await supabase
         .from('bookings')
         .select('id')
@@ -87,7 +97,9 @@ export const handler = withErrorHandling(async function (event) {
         .eq('room_slot_id', booking.room_slot_id)
         .eq('date', booking.date)
       if (findErr) return json(500, { error: findErr.message })
-      if (existing && existing.length > 0) {
+
+      if (existing && existing.length >= maxBookings) {
+        // Slot is full: delete all existing bookings so the recurring one can take over
         const { error: deleteErr } = await supabase
           .from('bookings')
           .delete()
