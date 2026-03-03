@@ -39,6 +39,8 @@ export const handler = withErrorHandling(async function (event) {
   const approveMatch = path.match(/recurring-requests\/([^/]+)\/approve$/)
   // POST /api/admin/recurring-requests/:id/deny
   const denyMatch = path.match(/recurring-requests\/([^/]+)\/deny$/)
+  // PATCH /api/admin/recurring-requests/:id
+  const updateMatch = path.match(/recurring-requests\/([^/]+)$/)
 
   // DELETE /api/admin/recurring-requests/:id/bookings
   const deleteBookingsMatch = path.match(/recurring-requests\/([^/]+)\/bookings$/)
@@ -214,6 +216,133 @@ export const handler = withErrorHandling(async function (event) {
       .eq('id', id)
     if (error) return json(500, { error: error.message })
     return json(200, { ok: true })
+  }
+
+  if (updateMatch && method === 'PATCH') {
+    const id = updateMatch[1]
+    let body
+    try { body = JSON.parse(event.body || '{}') } catch (_) { body = {} }
+    const { start_date, end_date, action } = body
+
+    if (!start_date || !end_date) return json(400, { error: 'start_date and end_date are required' })
+
+    const { data: req, error: reqErr } = await supabase
+      .from('recurring_requests')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (reqErr || !req) return json(404, { error: 'Request not found' })
+    if (req.status !== 'approved') return json(400, { error: 'Can only update dates of approved requests' })
+
+    const newStart = new Date(start_date + 'T00:00:00')
+    const newEnd = new Date(end_date + 'T00:00:00')
+    if (newEnd < newStart) return json(400, { error: 'end_date must be after start_date' })
+    const diffDays = (newEnd - newStart) / (1000 * 60 * 60 * 24)
+    if (diffDays > 365) return json(400, { error: 'Date range cannot exceed 365 days' })
+
+    // Generate old and new date sets
+    const generateDates = (startStr, endStr) => {
+      const dates = new Set()
+      const s = new Date(startStr + 'T00:00:00')
+      const e = new Date(endStr + 'T00:00:00')
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const weekday = d.getDay() === 0 ? 7 : d.getDay()
+        if (req.weekdays.includes(weekday)) dates.add(formatDate(new Date(d)))
+      }
+      return dates
+    }
+
+    const oldDates = generateDates(req.start_date, req.end_date)
+    const newDates = generateDates(start_date, end_date)
+
+    const datesToRemove = [...oldDates].filter((d) => !newDates.has(d))
+    const datesToAdd = [...newDates].filter((d) => !oldDates.has(d))
+
+    // Delete bookings for removed dates
+    if (datesToRemove.length > 0) {
+      const { error: delErr } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('recurring_request_id', id)
+        .in('date', datesToRemove)
+      if (delErr) return json(500, { error: delErr.message })
+    }
+
+    // Fetch max_bookings for the slot
+    const { data: slotData, error: slotErr } = await supabase
+      .from('room_slots')
+      .select('max_bookings')
+      .eq('id', req.room_slot_id)
+      .single()
+    if (slotErr) return json(500, { error: slotErr.message })
+    const maxBookings = slotData?.max_bookings || 1
+
+    // Check conflicts for dates to add
+    const conflictItems = []
+    const clearItems = []
+    for (const date of datesToAdd) {
+      const { data: existing, error: findErr } = await supabase
+        .from('bookings')
+        .select('id, teacher_name, class_name, source')
+        .eq('room_id', req.room_id)
+        .eq('room_slot_id', req.room_slot_id)
+        .eq('date', date)
+      if (findErr) return json(500, { error: findErr.message })
+      if (existing && existing.length >= maxBookings) {
+        conflictItems.push({ date, existing })
+      } else {
+        clearItems.push(date)
+      }
+    }
+
+    if (conflictItems.length > 0 && !action) {
+      return json(409, {
+        error: 'conflicts',
+        conflicts: conflictItems.map(({ date, existing }) => ({
+          date,
+          existing: existing.map((b) => ({ id: b.id, teacher_name: b.teacher_name, class_name: b.class_name, source: b.source })),
+        })),
+      })
+    }
+
+    const overwritten = []
+    // Insert non-conflicting bookings
+    for (const date of clearItems) {
+      const { error: insErr } = await supabase
+        .from('bookings')
+        .insert({ room_id: req.room_id, room_slot_id: req.room_slot_id, date, teacher_name: req.teacher_name, class_name: req.class_name, source: 'recurring', recurring_request_id: id })
+      if (insErr) return json(500, { error: insErr.message })
+    }
+
+    if (action === 'force') {
+      for (const { date, existing } of conflictItems) {
+        const { error: deleteErr } = await supabase
+          .from('bookings')
+          .delete()
+          .in('id', existing.map((b) => b.id))
+        if (deleteErr) return json(500, { error: deleteErr.message })
+        overwritten.push(date)
+        const { error: insErr } = await supabase
+          .from('bookings')
+          .insert({ room_id: req.room_id, room_slot_id: req.room_slot_id, date, teacher_name: req.teacher_name, class_name: req.class_name, source: 'recurring', recurring_request_id: id })
+        if (insErr) return json(500, { error: insErr.message })
+      }
+    }
+
+    // Update recurring request dates
+    const { error: updateErr } = await supabase
+      .from('recurring_requests')
+      .update({ start_date, end_date })
+      .eq('id', id)
+    if (updateErr) return json(500, { error: updateErr.message })
+
+    return json(200, {
+      ok: true,
+      removed: datesToRemove.length,
+      added: clearItems.length + overwritten.length,
+      overwritten,
+      skipped: action === 'skip' ? conflictItems.map(({ date }) => date) : [],
+    })
   }
 
   if (method === 'GET') {

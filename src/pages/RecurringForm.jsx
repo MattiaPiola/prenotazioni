@@ -61,6 +61,16 @@ export default function RecurringForm() {
   const today = formatDate(new Date())
   const nextYear = formatDate(new Date(new Date().setFullYear(new Date().getFullYear() + 1)))
 
+  const setAllYear = (index) => {
+    const now = new Date()
+    const startDate = formatDate(now)
+    // End of June: use next year if we are past June of the current year
+    const year = now.getMonth() > 5 ? now.getFullYear() + 1 : now.getFullYear()
+    const endDate = formatDate(new Date(year, 5, 30))
+    updateEntry(index, 'startDate', startDate)
+    updateEntry(index, 'endDate', endDate)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
@@ -250,6 +260,15 @@ export default function RecurringForm() {
                         required
                       />
                     </div>
+                  </div>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setAllYear(index)}
+                    >
+                      📅 Tutto l'anno
+                    </button>
                   </div>
 
                   <div className="form-group">
