@@ -20,6 +20,8 @@
   --gray-700: #495057;
   --gray-900: #212529;
   --white: #ffffff;
+  --recurring: #6d28d9;
+  --recurring-light: #ede9fe;
   --shadow: 0 2px 8px rgba(0,0,0,0.10);
   --shadow-lg: 0 4px 16px rgba(0,0,0,0.13);
   --radius: 8px;
@@ -504,6 +506,14 @@ textarea {
 
 .slot-weekend {
   background: var(--gray-100);
+}
+
+.slot-recurring {
+  background: var(--recurring-light);
+}
+
+.slot-recurring .slot-booked-info {
+  color: var(--recurring);
 }
 
 /* ===== Status Badges ===== */
