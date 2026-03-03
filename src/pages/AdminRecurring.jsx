@@ -4,6 +4,7 @@ import {
   adminGetRecurringRequests,
   adminApproveRecurring,
   adminDenyRecurring,
+  adminDeleteRecurringBookings,
 } from '../lib/api.js'
 import { DAY_NAMES } from '../lib/dates.js'
 
@@ -22,18 +23,25 @@ function RequestCard({ req, onRefresh }) {
   const [showDeny, setShowDeny] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [successMsg, setSuccessMsg] = useState(null)
   const [conflicts, setConflicts] = useState(null)
 
-  const handleApprove = async () => {
-    if (!confirm('Approvare questa richiesta? Verranno create tutte le prenotazioni nel periodo indicato.')) return
+  const handleApprove = async (action) => {
+    if (!action && !confirm('Approvare questa richiesta? Verranno create tutte le prenotazioni nel periodo indicato.')) return
     setLoading(true)
     setError(null)
     try {
-      const res = await adminApproveRecurring(req.id)
-      if (res.conflicts && res.conflicts.length > 0) {
+      const res = await adminApproveRecurring(req.id, action)
+      if (res.hasConflicts) {
         setConflicts(res.conflicts)
+      } else {
+        setConflicts(null)
+        const parts = []
+        if (res.overwritten && res.overwritten.length > 0) parts.push(`Sovrascritte: ${res.overwritten.join(', ')}`)
+        if (res.skipped && res.skipped.length > 0) parts.push(`Saltate: ${res.skipped.join(', ')}`)
+        if (parts.length > 0) setSuccessMsg('✅ Approvata. ' + parts.join(' · '))
+        onRefresh()
       }
-      onRefresh()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -47,6 +55,21 @@ function RequestCard({ req, onRefresh }) {
     try {
       await adminDenyRecurring(req.id, denyNotes)
       setShowDeny(false)
+      onRefresh()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteBookings = async () => {
+    if (!confirm('Eliminare tutte le prenotazioni ricorrenti generate da questa richiesta?')) return
+    setLoading(true)
+    setError(null)
+    try {
+      await adminDeleteRecurringBookings(req.id)
+      setSuccessMsg('🗑️ Tutte le prenotazioni ricorrenti sono state eliminate.')
       onRefresh()
     } catch (err) {
       setError(err.message)
@@ -81,15 +104,44 @@ function RequestCard({ req, onRefresh }) {
       )}
 
       {error && <div className="error-msg" style={{ marginTop: '0.5rem' }}>⚠️ {error}</div>}
-      {conflicts && conflicts.length > 0 && (
+      {successMsg && (
         <div className="success-msg" style={{ marginTop: '0.5rem', fontSize: '0.82rem' }}>
-          ✅ Approvata. Conflitti saltati: {conflicts.join(', ')}
+          {successMsg}
         </div>
       )}
 
-      {req.status === 'pending' && (
+      {conflicts && (
+        <div style={{ marginTop: '0.75rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+          <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>
+            ⚠️ Le seguenti date hanno lo slot esaurito:
+          </p>
+          <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
+            {conflicts.map((c) => (
+              <li key={c.date}>
+                <strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name} – ${b.class_name}`).join(', ')}
+              </li>
+            ))}
+          </ul>
+          <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>
+            Come procedere per le date in conflitto?
+          </p>
+          <div className="request-card-actions">
+            <button className="btn btn-danger btn-sm" onClick={() => handleApprove('force')} disabled={loading}>
+              🔄 Sovrascrivi
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => handleApprove('skip')} disabled={loading}>
+              ⏭️ Salta conflitti
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setConflicts(null)} disabled={loading}>
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {req.status === 'pending' && !conflicts && (
         <div className="request-card-actions">
-          <button className="btn btn-success btn-sm" onClick={handleApprove} disabled={loading}>
+          <button className="btn btn-success btn-sm" onClick={() => handleApprove()} disabled={loading}>
             ✅ Approva
           </button>
           {!showDeny ? (
@@ -112,6 +164,14 @@ function RequestCard({ req, onRefresh }) {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {req.status === 'approved' && (
+        <div className="request-card-actions">
+          <button className="btn btn-danger btn-sm" onClick={handleDeleteBookings} disabled={loading}>
+            🗑️ Cancella prenotazioni
+          </button>
         </div>
       )}
     </div>

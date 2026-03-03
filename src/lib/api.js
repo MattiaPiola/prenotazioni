@@ -69,8 +69,27 @@ export const adminGetRecurringRequests = (status) => {
   return apiFetch(`/api/admin/recurring-requests${qs}`)
 }
 
-export const adminApproveRecurring = (id) =>
-  apiFetch(`/api/admin/recurring-requests/${id}/approve`, { method: 'POST', body: JSON.stringify({}) })
+export const adminApproveRecurring = async (id, action) => {
+  const body = action ? { action } : {}
+  const res = await fetch(`/api/admin/recurring-requests/${id}/approve`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 409) {
+    const data = await res.json()
+    return { hasConflicts: true, ...data }
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try { const d = await res.json(); message = d.error || message } catch (_) {}
+    const err = new Error(message)
+    err.status = res.status
+    throw err
+  }
+  return res.json()
+}
 
 export const adminDenyRecurring = (id, notes) =>
   apiFetch(`/api/admin/recurring-requests/${id}/deny`, { method: 'POST', body: JSON.stringify({ notes }) })
@@ -109,6 +128,9 @@ export const getRoomBlockedSlots = (roomId, dateFrom, dateTo) => {
 
 export const cancelBooking = (id) =>
   apiFetch(`/api/bookings/${id}`, { method: 'DELETE' })
+
+export const adminDeleteRecurringBookings = (id) =>
+  apiFetch(`/api/admin/recurring-requests/${id}/bookings`, { method: 'DELETE' })
 
 export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
   const params = new URLSearchParams()

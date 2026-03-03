@@ -40,8 +40,34 @@ export const handler = withErrorHandling(async function (event) {
   // POST /api/admin/recurring-requests/:id/deny
   const denyMatch = path.match(/recurring-requests\/([^/]+)\/deny$/)
 
+  // DELETE /api/admin/recurring-requests/:id/bookings
+  const deleteBookingsMatch = path.match(/recurring-requests\/([^/]+)\/bookings$/)
+
+  if (deleteBookingsMatch && method === 'DELETE') {
+    const id = deleteBookingsMatch[1]
+    const { data: req, error: reqErr } = await supabase
+      .from('recurring_requests')
+      .select('id')
+      .eq('id', id)
+      .single()
+    if (reqErr || !req) return json(404, { error: 'Request not found' })
+
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('recurring_request_id', id)
+    if (error) return json(500, { error: error.message })
+
+    return json(200, { ok: true })
+  }
+
   if (approveMatch && method === 'POST') {
     const id = approveMatch[1]
+
+    let body
+    try { body = JSON.parse(event.body || '{}') } catch (_) { body = {} }
+    // action: undefined (first call) | 'force' (overwrite conflicts) | 'skip' (skip conflict dates)
+    const { action } = body
 
     // Fetch request
     const { data: req, error: reqErr } = await supabase
@@ -64,7 +90,16 @@ export const handler = withErrorHandling(async function (event) {
       }
     }
 
-    // Insert bookings, ignoring conflicts
+    // Fetch max_bookings for this slot
+    const { data: slotData, error: slotErr } = await supabase
+      .from('room_slots')
+      .select('max_bookings')
+      .eq('id', req.room_slot_id)
+      .single()
+    if (slotErr) return json(500, { error: slotErr.message })
+    if (!slotData) return json(404, { error: 'Slot not found' })
+    const maxBookings = slotData.max_bookings || 1
+
     const bookingsToInsert = dates.map((date) => ({
       room_id: req.room_id,
       room_slot_id: req.room_slot_id,
@@ -75,25 +110,76 @@ export const handler = withErrorHandling(async function (event) {
       recurring_request_id: id,
     }))
 
-    const conflicts = []
-    const inserted = []
+    // First pass: categorize dates into conflicting (slot full) vs non-conflicting
+    const conflictItems = []
+    const clearItems = []
 
     for (const booking of bookingsToInsert) {
+      const { data: existing, error: findErr } = await supabase
+        .from('bookings')
+        .select('id, teacher_name, class_name, source')
+        .eq('room_id', booking.room_id)
+        .eq('room_slot_id', booking.room_slot_id)
+        .eq('date', booking.date)
+      if (findErr) return json(500, { error: findErr.message })
+
+      if (existing && existing.length >= maxBookings) {
+        conflictItems.push({ booking, existing })
+      } else {
+        clearItems.push(booking)
+      }
+    }
+
+    // If there are conflicts and no action specified, return them for the admin to resolve
+    if (conflictItems.length > 0 && !action) {
+      return json(409, {
+        error: 'conflicts',
+        conflicts: conflictItems.map(({ booking, existing }) => ({
+          date: booking.date,
+          existing: existing.map((b) => ({
+            id: b.id,
+            teacher_name: b.teacher_name,
+            class_name: b.class_name,
+            source: b.source,
+          })),
+        })),
+      })
+    }
+
+    const overwritten = []
+    const inserted = []
+
+    // Insert non-conflicting bookings
+    for (const booking of clearItems) {
       const { data, error } = await supabase
         .from('bookings')
         .insert(booking)
         .select()
         .single()
-      if (error) {
-        if (error.code === '23505') {
-          conflicts.push(booking.date)
-        } else {
-          return json(500, { error: error.message })
-        }
-      } else {
+      if (error) return json(500, { error: error.message })
+      inserted.push(data)
+    }
+
+    // Handle conflicting dates based on action
+    if (action === 'force') {
+      for (const { booking, existing } of conflictItems) {
+        const { error: deleteErr } = await supabase
+          .from('bookings')
+          .delete()
+          .in('id', existing.map((b) => b.id))
+        if (deleteErr) return json(500, { error: deleteErr.message })
+        overwritten.push(booking.date)
+
+        const { data, error } = await supabase
+          .from('bookings')
+          .insert(booking)
+          .select()
+          .single()
+        if (error) return json(500, { error: error.message })
         inserted.push(data)
       }
     }
+    // action === 'skip': conflicting dates are simply not inserted
 
     // Update request status
     const { error: updateErr } = await supabase
@@ -105,7 +191,8 @@ export const handler = withErrorHandling(async function (event) {
     return json(200, {
       ok: true,
       inserted: inserted.length,
-      conflicts,
+      overwritten,
+      skipped: action === 'skip' ? conflictItems.map(({ booking }) => booking.date) : [],
     })
   }
 
