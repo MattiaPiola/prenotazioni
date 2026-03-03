@@ -85,6 +85,7 @@ export default function AdminRooms() {
       announcement: room.announcement || '',
       allow_user_edit: room.allow_user_edit || false,
       visible_weekdays: room.visible_weekdays || [0, 1, 2, 3, 4],
+      emoji: room.emoji || '',
     })
   }
 
@@ -103,6 +104,7 @@ export default function AdminRooms() {
         announcement: settingsForm.announcement || null,
         allow_user_edit: settingsForm.allow_user_edit,
         visible_weekdays: settingsForm.visible_weekdays,
+        emoji: settingsForm.emoji || null,
       })
       setSettingsId(null)
       load()
@@ -227,6 +229,17 @@ export default function AdminRooms() {
                         <tr key={`settings-${room.id}`}>
                           <td colSpan={2} style={{ background: 'var(--gray-100)', padding: '1rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '600px' }}>
+                              <div className="form-group">
+                                <label>Emoji personalizzata (mostrata nella home)</label>
+                                <input
+                                  type="text"
+                                  value={settingsForm.emoji}
+                                  onChange={(e) => setSettingsForm({ ...settingsForm, emoji: e.target.value })}
+                                  placeholder="Es. 🖥️ 📚 🔬"
+                                  maxLength={20}
+                                  style={{ width: '8rem' }}
+                                />
+                              </div>
                               <div className="form-group">
                                 <label>Annuncio pubblico (mostrato nel calendario)</label>
                                 <textarea
