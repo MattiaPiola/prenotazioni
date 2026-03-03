@@ -543,11 +543,6 @@ textarea {
   color: #58151c;
 }
 
-.badge-cancelled {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
 .badge-single {
   background: var(--gray-200);
   color: var(--gray-700);
