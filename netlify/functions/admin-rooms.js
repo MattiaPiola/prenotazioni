@@ -45,6 +45,7 @@ export const handler = withErrorHandling(async function (event) {
         announcement: src.announcement || null,
         allow_user_edit: src.allow_user_edit,
         visible_weekdays: src.visible_weekdays,
+        emoji: src.emoji || null,
       })
       .select()
       .single()
@@ -90,6 +91,7 @@ export const handler = withErrorHandling(async function (event) {
     if (body.announcement !== undefined) updates.announcement = body.announcement || null
     if (body.allow_user_edit !== undefined) updates.allow_user_edit = Boolean(body.allow_user_edit)
     if (body.visible_weekdays !== undefined) updates.visible_weekdays = body.visible_weekdays
+    if (body.emoji !== undefined) updates.emoji = body.emoji || null
     if (Object.keys(updates).length === 0) return json(400, { error: 'No fields to update' })
     const { data, error } = await supabase.from('rooms').update(updates).eq('id', roomId).select().single()
     if (error) return json(500, { error: error.message })

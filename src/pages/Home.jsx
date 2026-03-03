@@ -53,7 +53,7 @@ export default function Home() {
           <div className="rooms-grid">
             {rooms.map((room) => (
               <Link key={room.id} to={`/week/${room.id}`} className="room-card">
-                <div className="room-card-icon">🖥️</div>
+                <div className="room-card-icon">{room.emoji || '🖥️'}</div>
                 <div className="room-card-name">{room.name}</div>
                 <div className="room-card-cta">Visualizza calendario →</div>
               </Link>
