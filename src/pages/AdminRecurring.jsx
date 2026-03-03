@@ -13,8 +13,8 @@ function weekdayNames(days) {
 }
 
 function StatusBadge({ status }) {
-  const map = { pending: 'badge-pending', approved: 'badge-approved', denied: 'badge-denied', cancelled: 'badge-cancelled' }
-  const labels = { pending: 'In attesa', approved: 'Approvata', denied: 'Negata', cancelled: 'Annullata' }
+  const map = { pending: 'badge-pending', approved: 'badge-approved', denied: 'badge-denied' }
+  const labels = { pending: 'In attesa', approved: 'Approvata', denied: 'Negata' }
   return <span className={`badge ${map[status] || ''}`}>{labels[status] || status}</span>
 }
 
@@ -197,8 +197,6 @@ export default function AdminRecurring() {
   const pending = requests.filter((r) => r.status === 'pending')
   const decided = requests.filter((r) => r.status !== 'pending')
 
-  const FILTER_LABELS = { '': 'Tutte', pending: 'In attesa', approved: 'Approvate', denied: 'Negate', cancelled: 'Annullate' }
-
   return (
     <>
       <nav className="nav">
@@ -210,13 +208,13 @@ export default function AdminRecurring() {
         {error && <div className="error-msg">⚠️ {error}</div>}
 
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-          {['', 'pending', 'approved', 'denied', 'cancelled'].map((s) => (
+          {['', 'pending', 'approved', 'denied'].map((s) => (
             <button
               key={s}
               className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setFilter(s)}
             >
-              {FILTER_LABELS[s]}
+              {s === '' ? 'Tutte' : s === 'pending' ? 'In attesa' : s === 'approved' ? 'Approvate' : 'Negate'}
             </button>
           ))}
         </div>

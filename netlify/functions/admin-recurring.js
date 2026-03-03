@@ -58,12 +58,6 @@ export const handler = withErrorHandling(async function (event) {
       .eq('recurring_request_id', id)
     if (error) return json(500, { error: error.message })
 
-    const { error: updateErr } = await supabase
-      .from('recurring_requests')
-      .update({ status: 'cancelled', decided_at: new Date().toISOString() })
-      .eq('id', id)
-    if (updateErr) return json(500, { error: updateErr.message })
-
     return json(200, { ok: true })
   }
 
