@@ -5,6 +5,7 @@ import {
   adminApproveRecurring,
   adminDenyRecurring,
   adminDeleteRecurringBookings,
+  adminUpdateRecurringDates,
 } from '../lib/api.js'
 import { DAY_NAMES } from '../lib/dates.js'
 
@@ -25,6 +26,35 @@ function RequestCard({ req, onRefresh }) {
   const [error, setError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
   const [conflicts, setConflicts] = useState(null)
+  const [showEditDates, setShowEditDates] = useState(false)
+  const [editStartDate, setEditStartDate] = useState(req.start_date)
+  const [editEndDate, setEditEndDate] = useState(req.end_date)
+  const [editConflicts, setEditConflicts] = useState(null)
+
+  const handleUpdateDates = async (action) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await adminUpdateRecurringDates(req.id, { start_date: editStartDate, end_date: editEndDate, action })
+      if (res.hasConflicts) {
+        setEditConflicts(res.conflicts)
+      } else {
+        setEditConflicts(null)
+        setShowEditDates(false)
+        const parts = []
+        if (res.added > 0) parts.push(`Aggiunte: ${res.added}`)
+        if (res.removed > 0) parts.push(`Rimosse: ${res.removed}`)
+        if (res.overwritten && res.overwritten.length > 0) parts.push(`Sovrascritte: ${res.overwritten.join(', ')}`)
+        if (res.skipped && res.skipped.length > 0) parts.push(`Saltate: ${res.skipped.join(', ')}`)
+        setSuccessMsg('✅ Date aggiornate. ' + (parts.length > 0 ? parts.join(' · ') : 'Nessuna modifica.'))
+        onRefresh()
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleApprove = async (action) => {
     if (!action && !confirm('Approvare questa richiesta? Verranno create tutte le prenotazioni nel periodo indicato.')) return
@@ -172,6 +202,47 @@ function RequestCard({ req, onRefresh }) {
           <button className="btn btn-danger btn-sm" onClick={handleDeleteBookings} disabled={loading}>
             🗑️ Cancella prenotazioni
           </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setShowEditDates(!showEditDates); setEditConflicts(null) }} disabled={loading}>
+            ✏️ Modifica date
+          </button>
+        </div>
+      )}
+
+      {req.status === 'approved' && showEditDates && (
+        <div style={{ marginTop: '0.75rem', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+          <p style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9rem' }}>✏️ Modifica date periodo:</p>
+          <div className="form-row" style={{ marginBottom: '0.5rem' }}>
+            <div className="form-group">
+              <label>Data inizio</label>
+              <input type="date" value={editStartDate} onChange={(e) => { setEditStartDate(e.target.value); setEditConflicts(null) }} />
+            </div>
+            <div className="form-group">
+              <label>Data fine</label>
+              <input type="date" value={editEndDate} min={editStartDate} onChange={(e) => { setEditEndDate(e.target.value); setEditConflicts(null) }} />
+            </div>
+          </div>
+          {editConflicts && (
+            <div style={{ marginBottom: '0.75rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+              <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>⚠️ Le seguenti date hanno lo slot esaurito:</p>
+              <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
+                {editConflicts.map((c) => (
+                  <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name} – ${b.class_name}`).join(', ')}</li>
+                ))}
+              </ul>
+              <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>Come procedere per le date in conflitto?</p>
+              <div className="request-card-actions">
+                <button className="btn btn-danger btn-sm" onClick={() => handleUpdateDates('force')} disabled={loading}>🔄 Sovrascrivi</button>
+                <button className="btn btn-primary btn-sm" onClick={() => handleUpdateDates('skip')} disabled={loading}>⏭️ Salta conflitti</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditConflicts(null)} disabled={loading}>Annulla</button>
+              </div>
+            </div>
+          )}
+          {!editConflicts && (
+            <div className="request-card-actions">
+              <button className="btn btn-primary btn-sm" onClick={() => handleUpdateDates()} disabled={loading}>💾 Salva</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => { setShowEditDates(false); setEditStartDate(req.start_date); setEditEndDate(req.end_date) }} disabled={loading}>Annulla</button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -132,6 +132,29 @@ export const cancelBooking = (id) =>
 export const adminDeleteRecurringBookings = (id) =>
   apiFetch(`/api/admin/recurring-requests/${id}/bookings`, { method: 'DELETE' })
 
+export const adminUpdateRecurringDates = async (id, { start_date, end_date, action } = {}) => {
+  const body = { start_date, end_date }
+  if (action) body.action = action
+  const res = await fetch(`/api/admin/recurring-requests/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 409) {
+    const data = await res.json()
+    return { hasConflicts: true, ...data }
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try { const d = await res.json(); message = d.error || message } catch (_) {}
+    const err = new Error(message)
+    err.status = res.status
+    throw err
+  }
+  return res.json()
+}
+
 export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
