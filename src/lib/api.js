@@ -50,6 +50,9 @@ export const adminUpdateRoom = (id, data) =>
 export const adminDuplicateRoom = (id) =>
   apiFetch(`/api/admin/rooms/${id}/duplicate`, { method: 'POST', body: JSON.stringify({}) })
 
+export const adminReorderRooms = (items) =>
+  apiFetch('/api/admin/rooms/reorder', { method: 'POST', body: JSON.stringify({ items }) })
+
 export const adminDeleteRoom = (id) =>
   apiFetch(`/api/admin/rooms/${id}`, { method: 'DELETE' })
 

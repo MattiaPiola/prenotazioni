@@ -30,6 +30,20 @@ export const handler = withErrorHandling(async function (event) {
   const supabase = getSupabase()
   const method = event.httpMethod
 
+  // Detect reorder action: /api/admin/rooms/reorder
+  const reorderMatch = event.path.match(/admin\/rooms\/reorder$/)
+  if (reorderMatch && method === 'POST') {
+    let body
+    try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
+    const { items } = body
+    if (!Array.isArray(items)) return json(400, { error: 'items array required' })
+    for (const { id, sort_order } of items) {
+      const { error } = await supabase.from('rooms').update({ sort_order }).eq('id', id)
+      if (error) return json(500, { error: error.message })
+    }
+    return json(200, { ok: true })
+  }
+
   // Detect duplicate action: /api/admin/rooms/:id/duplicate
   const duplicateMatch = event.path.match(/admin\/rooms\/([^/]+)\/duplicate$/)
   if (duplicateMatch && method === 'POST') {
@@ -46,6 +60,7 @@ export const handler = withErrorHandling(async function (event) {
         allow_user_edit: src.allow_user_edit,
         visible_weekdays: src.visible_weekdays,
         emoji: src.emoji || null,
+        active: src.active,
       })
       .select()
       .single()
@@ -67,7 +82,7 @@ export const handler = withErrorHandling(async function (event) {
   const roomId = match ? match[1] : null
 
   if (method === 'GET') {
-    const { data, error } = await supabase.from('rooms').select('*').order('name')
+    const { data, error } = await supabase.from('rooms').select('*').order('sort_order').order('name')
     if (error) return json(500, { error: error.message })
     return json(200, data)
   }
@@ -77,7 +92,9 @@ export const handler = withErrorHandling(async function (event) {
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
     const { name } = body
     if (!name) return json(400, { error: 'name is required' })
-    const { data, error } = await supabase.from('rooms').insert({ name: name.trim() }).select().single()
+    const { count } = await supabase.from('rooms').select('*', { count: 'exact', head: true })
+    const sort_order = count ?? 0
+    const { data, error } = await supabase.from('rooms').insert({ name: name.trim(), sort_order }).select().single()
     if (error) return json(500, { error: error.message })
     return json(201, data)
   }
@@ -92,6 +109,8 @@ export const handler = withErrorHandling(async function (event) {
     if (body.allow_user_edit !== undefined) updates.allow_user_edit = Boolean(body.allow_user_edit)
     if (body.visible_weekdays !== undefined) updates.visible_weekdays = body.visible_weekdays
     if (body.emoji !== undefined) updates.emoji = body.emoji || null
+    if (body.active !== undefined) updates.active = Boolean(body.active)
+    if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10)
     if (Object.keys(updates).length === 0) return json(400, { error: 'No fields to update' })
     const { data, error } = await supabase.from('rooms').update(updates).eq('id', roomId).select().single()
     if (error) return json(500, { error: error.message })
