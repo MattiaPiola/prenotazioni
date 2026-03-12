@@ -29,7 +29,7 @@ export const handler = withErrorHandling(async function (event) {
 
   const { room_id, room_slot_id, start_date, end_date, weekdays, teacher_name, class_name } = body
 
-  if (!room_id || !room_slot_id || !start_date || !end_date || !weekdays || !teacher_name || !class_name) {
+  if (!room_id || !room_slot_id || !start_date || !end_date || !weekdays || !teacher_name) {
     return {
       statusCode: 400,
       headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -83,7 +83,7 @@ export const handler = withErrorHandling(async function (event) {
       end_date,
       weekdays,
       teacher_name: teacher_name.trim(),
-      class_name: class_name.trim(),
+      class_name: class_name ? class_name.trim() : null,
       status: 'pending',
     })
     .select()

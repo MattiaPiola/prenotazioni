@@ -72,7 +72,7 @@ export default function BookingForm() {
             <h2 style={{ marginBottom: '0.5rem' }}>Prenotazione confermata!</h2>
             <p style={{ color: 'var(--gray-700)', marginBottom: '1.5rem' }}>
               {displayDate} · {slot ? `${slot.start_time} – ${slot.end_time}` : ''}<br />
-              {teacherName} · {className}
+              {teacherName}{className ? ` · ${className}` : ''}
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link to={`/week/${roomId}`} className="btn btn-primary">
@@ -132,14 +132,13 @@ export default function BookingForm() {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="class">Classe *</label>
+                  <label htmlFor="class">Classe</label>
                   <input
                     id="class"
                     type="text"
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
                     placeholder="Es. 3A"
-                    required
                   />
                 </div>
 
