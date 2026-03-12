@@ -8,10 +8,12 @@ import {
   adminDeleteRoom,
   adminDuplicateRoom,
 } from '../lib/api.js'
+import { useAdminContext } from '../App.jsx'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 
 export default function AdminRooms() {
+  const { is_superadmin } = useAdminContext()
   const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -125,26 +127,28 @@ export default function AdminRooms() {
       <div className="page">
         {error && <div className="error-msg">⚠️ {error}</div>}
 
-        {/* Add room form */}
-        <div className="card" style={{ marginBottom: '1.25rem' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Aggiungi Aula</h2>
-          <form onSubmit={handleAdd}>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Nome aula (es. Aula 101)"
-                  required
-                />
+        {/* Add room form — superadmin only */}
+        {is_superadmin && (
+          <div className="card" style={{ marginBottom: '1.25rem' }}>
+            <h2 style={{ marginBottom: '1rem' }}>Aggiungi Aula</h2>
+            <form onSubmit={handleAdd}>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Nome aula (es. Aula 101)"
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" disabled={adding}>
+                  {adding ? 'Aggiunta...' : '+ Aggiungi'}
+                </button>
               </div>
-              <button type="submit" className="btn btn-primary" disabled={adding}>
-                {adding ? 'Aggiunta...' : '+ Aggiungi'}
-              </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        )}
 
         {/* Rooms list */}
         <div className="card">
@@ -168,7 +172,7 @@ export default function AdminRooms() {
                     <Fragment key={room.id}>
                       <tr>
                         <td>
-                          {editId === room.id ? (
+                          {is_superadmin && editId === room.id ? (
                             <div className="inline-edit">
                               <input
                                 type="text"
@@ -196,32 +200,36 @@ export default function AdminRooms() {
                             <Link to={`/admin/rooms/${room.id}/slots`} className="btn btn-outline btn-sm">
                               ⏰ Orari
                             </Link>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => settingsId === room.id ? setSettingsId(null) : openSettings(room)}
-                            >
-                              ⚙️ Impostazioni
-                            </button>
-                            {editId !== room.id && (
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => { setEditId(room.id); setEditName(room.name) }}
-                              >
-                                ✏️ Modifica
-                              </button>
+                            {is_superadmin && (
+                              <>
+                                <button
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => settingsId === room.id ? setSettingsId(null) : openSettings(room)}
+                                >
+                                  ⚙️ Impostazioni
+                                </button>
+                                {editId !== room.id && (
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => { setEditId(room.id); setEditName(room.name) }}
+                                  >
+                                    ✏️ Modifica
+                                  </button>
+                                )}
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleDuplicate(room.id, room.name)}
+                                >
+                                  📋 Duplica
+                                </button>
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => handleDelete(room.id, room.name)}
+                                >
+                                  🗑️ Elimina
+                                </button>
+                              </>
                             )}
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleDuplicate(room.id, room.name)}
-                            >
-                              📋 Duplica
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleDelete(room.id, room.name)}
-                            >
-                              🗑️ Elimina
-                            </button>
                           </div>
                         </td>
                       </tr>

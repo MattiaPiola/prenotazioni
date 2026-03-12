@@ -1,5 +1,5 @@
 import { getSupabase } from './_supabase.js'
-import { requireAdmin } from './_auth.js'
+import { requireAdmin, requireRoomAccess, getPermittedRoomIds } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
 
 const CORS = {
@@ -30,8 +30,9 @@ export const handler = withErrorHandling(async function (event) {
     return { statusCode: 204, headers: CORS }
   }
 
+  let ctx
   try {
-    requireAdmin(event)
+    ctx = requireAdmin(event)
   } catch (err) {
     return json(err.status || 401, { error: err.message })
   }
@@ -45,6 +46,16 @@ export const handler = withErrorHandling(async function (event) {
 
   if (deleteMatch && method === 'DELETE') {
     const id = deleteMatch[1]
+    // For room-admins, verify they have access to the booking's room
+    if (!ctx.is_superadmin) {
+      const { data: booking } = await supabase.from('bookings').select('room_id').eq('id', id).single()
+      if (!booking) return json(404, { error: 'Booking not found' })
+      try {
+        await requireRoomAccess(ctx, booking.room_id, supabase)
+      } catch (err) {
+        return json(err.status || 403, { error: err.message })
+      }
+    }
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return json(500, { error: error.message })
     return json(204, {})
@@ -52,6 +63,8 @@ export const handler = withErrorHandling(async function (event) {
 
   if (method === 'GET') {
     const params = event.queryStringParameters || {}
+    const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
+
     let query = supabase
       .from('bookings')
       .select('*, rooms(name), room_slots(start_time, end_time)')
@@ -60,7 +73,17 @@ export const handler = withErrorHandling(async function (event) {
 
     if (params.from) query = query.gte('date', params.from)
     if (params.to) query = query.lte('date', params.to)
-    if (params.room_id) query = query.eq('room_id', params.room_id)
+
+    if (params.room_id) {
+      // If room-admin, verify they have permission for the requested room
+      if (permittedRoomIds !== null && !permittedRoomIds.includes(params.room_id)) {
+        return json(403, { error: 'Forbidden' })
+      }
+      query = query.eq('room_id', params.room_id)
+    } else if (permittedRoomIds !== null) {
+      // room-admin: restrict to permitted rooms
+      query = query.in('room_id', permittedRoomIds.length > 0 ? permittedRoomIds : ['00000000-0000-0000-0000-000000000000'])
+    }
 
     const { data, error } = await query
     if (error) return json(500, { error: error.message })

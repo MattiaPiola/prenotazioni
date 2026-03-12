@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { setSessionCookie } from './_auth.js'
+import { getSupabase } from './_supabase.js'
 import { withErrorHandling } from './_handler.js'
 
 const CORS = {
@@ -37,27 +38,58 @@ export const handler = withErrorHandling(async function (event) {
     }
   }
 
-  // Hash the provided code with SHA-256 and compare to ADMIN_CODE_HASH env var
+  // Hash the provided code with SHA-256
   const hash = crypto.createHash('sha256').update(code).digest('hex')
   const expectedHash = process.env.ADMIN_CODE_HASH || ''
 
-  if (!expectedHash || hash !== expectedHash) {
+  // Check superadmin first
+  if (expectedHash && hash === expectedHash) {
+    const cookie = setSessionCookie({ role: 'admin', is_superadmin: true, admin_user_id: null, iat: Date.now() })
     return {
-      statusCode: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Invalid access code' }),
+      statusCode: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json',
+        'Set-Cookie': cookie,
+      },
+      body: JSON.stringify({ ok: true, is_superadmin: true }),
     }
   }
 
-  const cookie = setSessionCookie({ role: 'admin', iat: Date.now() })
+  // Check room-admin accounts in the database
+  const supabase = getSupabase()
+  if (supabase.statusCode) return supabase // propagate 503 if not configured
+
+  const { data: adminUsers, error: dbError } = await supabase
+    .from('admin_users')
+    .select('id, name, code_hash')
+    .eq('active', true)
+
+  if (dbError) {
+    return {
+      statusCode: 500,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Internal server error' }),
+    }
+  }
+
+  const matchedUser = (adminUsers || []).find((u) => u.code_hash === hash)
+  if (matchedUser) {
+    const cookie = setSessionCookie({ role: 'admin', is_superadmin: false, admin_user_id: matchedUser.id, iat: Date.now() })
+    return {
+      statusCode: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json',
+        'Set-Cookie': cookie,
+      },
+      body: JSON.stringify({ ok: true, is_superadmin: false }),
+    }
+  }
 
   return {
-    statusCode: 200,
-    headers: {
-      ...CORS,
-      'Content-Type': 'application/json',
-      'Set-Cookie': cookie,
-    },
-    body: JSON.stringify({ ok: true }),
+    statusCode: 401,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error: 'Invalid access code' }),
   }
 })

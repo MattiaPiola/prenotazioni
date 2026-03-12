@@ -1,14 +1,17 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { adminLogout } from '../lib/api.js'
+import { useAdminContext } from '../App.jsx'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const { is_superadmin } = useAdminContext()
 
   const handleLogout = async () => {
     try {
       await adminLogout()
     } catch (_) {}
     localStorage.removeItem('admin_authenticated')
+    localStorage.removeItem('admin_is_superadmin')
     navigate('/admin', { replace: true })
   }
 
@@ -18,6 +21,10 @@ export default function AdminDashboard() {
     { icon: '📅', title: 'Prenotazioni', desc: 'Visualizza e gestisci prenotazioni', to: '/admin/bookings' },
     { icon: '🗓️', title: 'Calendario', desc: 'Visualizza calendario, blocca slot', to: '/admin/calendar' },
   ]
+
+  if (is_superadmin) {
+    sections.push({ icon: '👥', title: 'Amministratori', desc: 'Gestisci account admin delle aule', to: '/admin/users' })
+  }
 
   return (
     <>
