@@ -110,6 +110,33 @@ export const adminGetBookings = ({ from, to, room_id } = {}) => {
 export const adminCancelBooking = (id) =>
   apiFetch(`/api/admin/bookings/${id}`, { method: 'DELETE' })
 
+export const adminCreateBooking = (data) =>
+  apiFetch('/api/admin/bookings', { method: 'POST', body: JSON.stringify(data) })
+
+export const adminUpdateBooking = (id, data) =>
+  apiFetch(`/api/admin/bookings/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const adminCreateRecurringBooking = async (data) => {
+  const res = await fetch('/api/admin/recurring-requests', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (res.status === 409) {
+    const d = await res.json()
+    return { hasConflicts: true, ...d }
+  }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`
+    try { const d = await res.json(); message = d.error || message } catch (_) {}
+    const err = new Error(message)
+    err.status = res.status
+    throw err
+  }
+  return res.json()
+}
+
 export const adminGetBlockedSlots = ({ room_id, date_from, date_to } = {}) => {
   const params = new URLSearchParams()
   if (room_id) params.set('room_id', room_id)
