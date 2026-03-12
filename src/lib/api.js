@@ -72,6 +72,8 @@ export const adminGetRecurringRequests = (status) => {
   return apiFetch(`/api/admin/recurring-requests${qs}`)
 }
 
+export const adminGetRecurringRequest = (id) => apiFetch(`/api/admin/recurring-requests/${id}`)
+
 export const adminApproveRecurring = async (id, action) => {
   const body = action ? { action } : {}
   const res = await fetch(`/api/admin/recurring-requests/${id}/approve`, {
