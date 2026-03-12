@@ -17,8 +17,12 @@ export async function sendTelegramMessage(text, chatId) {
     body: JSON.stringify({ chat_id: chatId, text }),
   })
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Telegram API error ${res.status}: ${body}`)
+    let description = `status ${res.status}`
+    try {
+      const errBody = await res.json()
+      description = errBody.description || description
+    } catch (_) {}
+    throw new Error(`Telegram API error: ${description}`)
   }
 }
 

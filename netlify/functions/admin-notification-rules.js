@@ -119,8 +119,14 @@ export const handler = withErrorHandling(async function (event) {
     // Validate scope + room_ids consistency
     const finalScope = updates.scope
     const finalRoomIds = updates.room_ids
-    if (finalScope === 'specific_rooms' && finalRoomIds !== undefined && (!Array.isArray(finalRoomIds) || finalRoomIds.length === 0)) {
-      return json(400, { error: 'room_ids must be a non-empty array when scope is specific_rooms' })
+    if (finalScope === 'specific_rooms') {
+      // room_ids must be provided (and non-empty) when changing scope to specific_rooms
+      if (finalRoomIds === undefined) {
+        return json(400, { error: 'room_ids is required when setting scope to specific_rooms' })
+      }
+      if (!Array.isArray(finalRoomIds) || finalRoomIds.length === 0) {
+        return json(400, { error: 'room_ids must be a non-empty array when scope is specific_rooms' })
+      }
     }
     if (finalScope === 'all_rooms') {
       updates.room_ids = null
