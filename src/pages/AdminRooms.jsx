@@ -7,6 +7,7 @@ import {
   adminUpdateRoom,
   adminDeleteRoom,
   adminDuplicateRoom,
+  adminReorderRooms,
 } from '../lib/api.js'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
@@ -76,6 +77,29 @@ export default function AdminRooms() {
       load()
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const handleToggleActive = async (id, active) => {
+    try {
+      await adminUpdateRoom(id, { active: !active })
+      load()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleMove = async (idx, direction) => {
+    const newIdx = idx + direction
+    if (newIdx < 0 || newIdx >= rooms.length) return
+    const updated = [...rooms]
+    ;[updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]]
+    setRooms(updated)
+    try {
+      await adminReorderRooms(updated.map((r, i) => ({ id: r.id, sort_order: i })))
+    } catch (err) {
+      setError(err.message)
+      load()
     }
   }
 
@@ -159,14 +183,32 @@ export default function AdminRooms() {
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: '5rem' }}>Ordine</th>
                     <th>Nome Aula</th>
+                    <th>Stato</th>
                     <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rooms.map((room) => (
+                  {rooms.map((room, idx) => (
                     <Fragment key={room.id}>
-                      <tr>
+                      <tr style={!room.active ? { opacity: 0.5 } : undefined}>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.2rem' }}>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleMove(idx, -1)}
+                              disabled={idx === 0}
+                              title="Sposta su"
+                            >↑</button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => handleMove(idx, 1)}
+                              disabled={idx === rooms.length - 1}
+                              title="Sposta giù"
+                            >↓</button>
+                          </div>
+                        </td>
                         <td>
                           {editId === room.id ? (
                             <div className="inline-edit">
@@ -190,6 +232,15 @@ export default function AdminRooms() {
                           ) : (
                             <strong>{room.name}</strong>
                           )}
+                        </td>
+                        <td>
+                          <button
+                            className={`btn btn-sm ${room.active ? 'btn-secondary' : 'btn-success'}`}
+                            onClick={() => handleToggleActive(room.id, room.active)}
+                            title={room.active ? "Disattiva l'aula" : "Attiva l'aula"}
+                          >
+                            {room.active ? '⏸ Disattiva' : '▶ Attiva'}
+                          </button>
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -227,7 +278,7 @@ export default function AdminRooms() {
                       </tr>
                       {settingsId === room.id && (
                         <tr key={`settings-${room.id}`}>
-                          <td colSpan={2} style={{ background: 'var(--gray-100)', padding: '1rem' }}>
+                          <td colSpan={4} style={{ background: 'var(--gray-100)', padding: '1rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '600px' }}>
                               <div className="form-group">
                                 <label>Emoji personalizzata (mostrata nella home)</label>
