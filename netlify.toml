@@ -19,6 +19,26 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/me"
+  to = "/.netlify/functions/admin-me"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/admin-users/*/rooms"
+  to = "/.netlify/functions/admin-users"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/admin-users/*"
+  to = "/.netlify/functions/admin-users"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/admin-users"
+  to = "/.netlify/functions/admin-users"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/rooms/*/duplicate"
   to = "/.netlify/functions/admin-rooms"
   status = 200

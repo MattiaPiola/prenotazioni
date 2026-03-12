@@ -1,5 +1,5 @@
 import { getSupabase } from './_supabase.js'
-import { requireAdmin } from './_auth.js'
+import { requireAdmin, getPermittedRoomIds } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
 
 const CORS = {
@@ -21,8 +21,9 @@ export const handler = withErrorHandling(async function (event) {
     return { statusCode: 204, headers: CORS }
   }
 
+  let ctx
   try {
-    requireAdmin(event)
+    ctx = requireAdmin(event)
   } catch (err) {
     return json(err.status || 401, { error: err.message })
   }
@@ -30,9 +31,10 @@ export const handler = withErrorHandling(async function (event) {
   const supabase = getSupabase()
   const method = event.httpMethod
 
-  // Detect reorder action: /api/admin/rooms/reorder
+  // Detect reorder action: /api/admin/rooms/reorder — superadmin only
   const reorderMatch = event.path.match(/admin\/rooms\/reorder$/)
   if (reorderMatch && method === 'POST') {
+    if (!ctx.is_superadmin) return json(403, { error: 'Forbidden' })
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
     const { items } = body
@@ -44,9 +46,10 @@ export const handler = withErrorHandling(async function (event) {
     return json(200, { ok: true })
   }
 
-  // Detect duplicate action: /api/admin/rooms/:id/duplicate
+  // Detect duplicate action: /api/admin/rooms/:id/duplicate — superadmin only
   const duplicateMatch = event.path.match(/admin\/rooms\/([^/]+)\/duplicate$/)
   if (duplicateMatch && method === 'POST') {
+    if (!ctx.is_superadmin) return json(403, { error: 'Forbidden' })
     const srcId = duplicateMatch[1]
     // Fetch source room
     const { data: src, error: srcErr } = await supabase.from('rooms').select('*').eq('id', srcId).single()
@@ -82,12 +85,21 @@ export const handler = withErrorHandling(async function (event) {
   const roomId = match ? match[1] : null
 
   if (method === 'GET') {
-    const { data, error } = await supabase.from('rooms').select('*').order('sort_order').order('name')
+    const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
+    if (permittedRoomIds !== null && permittedRoomIds.length === 0) {
+      return json(200, [])
+    }
+    let query = supabase.from('rooms').select('*').order('sort_order').order('name')
+    if (permittedRoomIds !== null) {
+      query = query.in('id', permittedRoomIds)
+    }
+    const { data, error } = await query
     if (error) return json(500, { error: error.message })
     return json(200, data)
   }
 
   if (method === 'POST') {
+    if (!ctx.is_superadmin) return json(403, { error: 'Forbidden' })
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
     const { name } = body
@@ -100,6 +112,7 @@ export const handler = withErrorHandling(async function (event) {
   }
 
   if (method === 'PATCH') {
+    if (!ctx.is_superadmin) return json(403, { error: 'Forbidden' })
     if (!roomId) return json(400, { error: 'Room id required' })
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
@@ -118,6 +131,7 @@ export const handler = withErrorHandling(async function (event) {
   }
 
   if (method === 'DELETE') {
+    if (!ctx.is_superadmin) return json(403, { error: 'Forbidden' })
     if (!roomId) return json(400, { error: 'Room id required' })
     const { error } = await supabase.from('rooms').delete().eq('id', roomId)
     if (error) return json(500, { error: error.message })

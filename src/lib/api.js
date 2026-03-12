@@ -169,6 +169,22 @@ export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
   return res.blob()
 }
 
+export const adminGetMe = () => apiFetch('/api/admin/me')
+
+export const adminGetAdminUsers = () => apiFetch('/api/admin/admin-users')
+
+export const adminCreateAdminUser = (data) =>
+  apiFetch('/api/admin/admin-users', { method: 'POST', body: JSON.stringify(data) })
+
+export const adminUpdateAdminUser = (id, data) =>
+  apiFetch(`/api/admin/admin-users/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const adminDeleteAdminUser = (id) =>
+  apiFetch(`/api/admin/admin-users/${id}`, { method: 'DELETE' })
+
+export const adminSetAdminUserRooms = (id, room_ids) =>
+  apiFetch(`/api/admin/admin-users/${id}/rooms`, { method: 'POST', body: JSON.stringify({ room_ids }) })
+
 export const adminGetNotificationRules = () => apiFetch('/api/admin/notification-rules')
 
 export const adminCreateNotificationRule = (data) =>

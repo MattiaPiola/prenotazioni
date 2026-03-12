@@ -32,6 +32,9 @@ function getCookies(event) {
   return cookies
 }
 
+// Returns { is_superadmin, admin_user_id }
+// Old sessions (before multi-admin support was added) had no is_superadmin field.
+// Using !== false treats missing field as true for backward compatibility with existing deployments.
 export function requireAdmin(event) {
   const cookies = getCookies(event)
   const token = cookies[COOKIE_NAME]
@@ -42,20 +45,51 @@ export function requireAdmin(event) {
     err.status = 401
     throw err
   }
-  return payload
+  const is_superadmin = payload.is_superadmin !== false
+  return {
+    is_superadmin,
+    admin_user_id: payload.admin_user_id || null,
+  }
 }
 
+// Throws 403 if the session is not superadmin.
 export function requireSuperadmin(event) {
-  const cookies = getCookies(event)
-  const token = cookies[COOKIE_NAME]
-  const secret = process.env.SESSION_SIGNING_SECRET || 'dev-secret'
-  const payload = verifySession(token, secret)
-  if (!payload || payload.role !== 'superadmin') {
-    const err = new Error('Unauthorized')
-    err.status = 401
+  const ctx = requireAdmin(event)
+  if (!ctx.is_superadmin) {
+    const err = new Error('Forbidden')
+    err.status = 403
     throw err
   }
-  return payload
+  return ctx
+}
+
+// Checks that the admin has access to the given roomId.
+// Superadmins always pass. Room-admins must have a matching admin_room_permissions row.
+export async function requireRoomAccess(ctx, roomId, supabase) {
+  if (ctx.is_superadmin) return ctx
+  const { data, error } = await supabase
+    .from('admin_room_permissions')
+    .select('room_id')
+    .eq('admin_user_id', ctx.admin_user_id)
+    .eq('room_id', roomId)
+    .single()
+  if (error || !data) {
+    const err = new Error('Forbidden')
+    err.status = 403
+    throw err
+  }
+  return ctx
+}
+
+// Returns null for superadmin (meaning all rooms), or an array of permitted room IDs for room-admins.
+export async function getPermittedRoomIds(ctx, supabase) {
+  if (ctx.is_superadmin) return null
+  const { data, error } = await supabase
+    .from('admin_room_permissions')
+    .select('room_id')
+    .eq('admin_user_id', ctx.admin_user_id)
+  if (error) return []
+  return (data || []).map((r) => r.room_id)
 }
 
 export function setSessionCookie(payload) {

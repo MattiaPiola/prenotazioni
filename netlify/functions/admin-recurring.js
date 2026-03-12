@@ -1,5 +1,5 @@
 import { getSupabase } from './_supabase.js'
-import { requireAdmin } from './_auth.js'
+import { requireAdmin, requireRoomAccess, getPermittedRoomIds } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
 import { emitEvent } from './_notify.js'
 
@@ -26,8 +26,9 @@ export const handler = withErrorHandling(async function (event) {
     return { statusCode: 204, headers: CORS }
   }
 
+  let ctx
   try {
-    requireAdmin(event)
+    ctx = requireAdmin(event)
   } catch (err) {
     return json(err.status || 401, { error: err.message })
   }
@@ -50,10 +51,16 @@ export const handler = withErrorHandling(async function (event) {
     const id = deleteBookingsMatch[1]
     const { data: req, error: reqErr } = await supabase
       .from('recurring_requests')
-      .select('id')
+      .select('id, room_id')
       .eq('id', id)
       .single()
     if (reqErr || !req) return json(404, { error: 'Request not found' })
+
+    try {
+      await requireRoomAccess(ctx, req.room_id, supabase)
+    } catch (err) {
+      return json(err.status || 403, { error: err.message })
+    }
 
     const { error } = await supabase
       .from('bookings')
@@ -86,6 +93,12 @@ export const handler = withErrorHandling(async function (event) {
       .single()
     if (reqErr || !req) return json(404, { error: 'Request not found' })
     if (req.status !== 'pending') return json(400, { error: 'Request already decided' })
+
+    try {
+      await requireRoomAccess(ctx, req.room_id, supabase)
+    } catch (err) {
+      return json(err.status || 403, { error: err.message })
+    }
 
     // Generate all dates in range matching weekdays
     const start = new Date(req.start_date + 'T00:00:00')
@@ -222,11 +235,18 @@ export const handler = withErrorHandling(async function (event) {
     try { body = JSON.parse(event.body || '{}') } catch (_) { body = {} }
     const { notes } = body
 
+    // Check room access and fetch data for notification emit
     const { data: reqTodeny, error: fetchErr } = await supabase
       .from('recurring_requests')
       .select('room_id, room_slot_id, start_date, end_date, teacher_name, class_name')
       .eq('id', id)
       .single()
+    if (fetchErr || !reqTodeny) return json(404, { error: 'Request not found' })
+    try {
+      await requireRoomAccess(ctx, reqTodeny.room_id, supabase)
+    } catch (err) {
+      return json(err.status || 403, { error: err.message })
+    }
 
     const { error } = await supabase
       .from('recurring_requests')
@@ -265,6 +285,12 @@ export const handler = withErrorHandling(async function (event) {
       .single()
     if (reqErr || !req) return json(404, { error: 'Request not found' })
     if (req.status !== 'approved') return json(400, { error: 'Can only update dates of approved requests' })
+
+    try {
+      await requireRoomAccess(ctx, req.room_id, supabase)
+    } catch (err) {
+      return json(err.status || 403, { error: err.message })
+    }
 
     const newStart = new Date(start_date + 'T00:00:00')
     const newEnd = new Date(end_date + 'T00:00:00')
@@ -379,12 +405,17 @@ export const handler = withErrorHandling(async function (event) {
 
   if (method === 'GET') {
     const params = event.queryStringParameters || {}
+    const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
     let query = supabase
       .from('recurring_requests')
       .select('*, rooms(name), room_slots(start_time, end_time, label)')
       .order('created_at', { ascending: false })
     if (params.status) {
       query = query.eq('status', params.status)
+    }
+    if (permittedRoomIds !== null) {
+      if (permittedRoomIds.length === 0) return json(200, [])
+      query = query.in('room_id', permittedRoomIds)
     }
     const { data, error } = await query
     if (error) return json(500, { error: error.message })

@@ -1,5 +1,5 @@
 import { getSupabase } from './_supabase.js'
-import { requireAdmin } from './_auth.js'
+import { requireAdmin, requireRoomAccess } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
 
 const CORS = {
@@ -21,8 +21,9 @@ export const handler = withErrorHandling(async function (event) {
     return { statusCode: 204, headers: CORS }
   }
 
+  let ctx
   try {
-    requireAdmin(event)
+    ctx = requireAdmin(event)
   } catch (err) {
     return json(err.status || 401, { error: err.message })
   }
@@ -41,6 +42,13 @@ export const handler = withErrorHandling(async function (event) {
   const slotId = slotMatch ? slotMatch[2] : null
 
   if (!roomId) return json(400, { error: 'Room id required in path' })
+
+  // Check room access for room-admins
+  try {
+    await requireRoomAccess(ctx, roomId, supabase)
+  } catch (err) {
+    return json(err.status || 403, { error: err.message })
+  }
 
   if (method === 'GET') {
     const { data, error } = await supabase

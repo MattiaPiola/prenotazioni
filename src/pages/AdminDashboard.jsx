@@ -1,16 +1,17 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { adminLogout } from '../lib/api.js'
+import { useAdminContext } from '../App.jsx'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const isSuperadmin = localStorage.getItem('admin_role') === 'superadmin'
+  const { is_superadmin } = useAdminContext()
 
   const handleLogout = async () => {
     try {
       await adminLogout()
     } catch (_) {}
     localStorage.removeItem('admin_authenticated')
-    localStorage.removeItem('admin_role')
+    localStorage.removeItem('admin_is_superadmin')
     navigate('/admin', { replace: true })
   }
 
@@ -22,6 +23,7 @@ export default function AdminDashboard() {
   ]
 
   const superadminSections = [
+    { icon: '👥', title: 'Amministratori', desc: 'Gestisci account admin delle aule', to: '/admin/users' },
     { icon: '🔔', title: 'Notifiche Telegram', desc: 'Configura notifiche per eventi', to: '/admin/notifications' },
   ]
 
@@ -54,7 +56,7 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {isSuperadmin && (
+        {is_superadmin && (
           <div style={{ marginTop: '1.5rem' }}>
             <h2 style={{ marginBottom: '0.75rem', fontSize: '1rem', color: 'var(--gray-700)' }}>
               Superamministratore

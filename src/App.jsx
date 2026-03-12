@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import WeekView from './pages/WeekView.jsx'
@@ -10,7 +11,14 @@ import AdminSlots from './pages/AdminSlots.jsx'
 import AdminRecurring from './pages/AdminRecurring.jsx'
 import AdminBookings from './pages/AdminBookings.jsx'
 import AdminCalendar from './pages/AdminCalendar.jsx'
+import AdminUsers from './pages/AdminUsers.jsx'
 import AdminNotifications from './pages/AdminNotifications.jsx'
+
+export const AdminContext = createContext({ is_superadmin: false })
+
+export function useAdminContext() {
+  return useContext(AdminContext)
+}
 
 function AdminGuard({ children }) {
   const auth = localStorage.getItem('admin_authenticated')
@@ -18,20 +26,35 @@ function AdminGuard({ children }) {
   if (auth !== 'true') {
     return <Navigate to="/admin" state={{ from: location }} replace />
   }
-  return children
+  const is_superadmin = localStorage.getItem('admin_is_superadmin') === 'true'
+  return (
+    <AdminContext.Provider value={{ is_superadmin }}>
+      {children}
+    </AdminContext.Provider>
+  )
 }
 
 function SuperadminGuard({ children }) {
   const auth = localStorage.getItem('admin_authenticated')
-  const role = localStorage.getItem('admin_role')
+  const is_superadmin = localStorage.getItem('admin_is_superadmin') === 'true'
   const location = useLocation()
   if (auth !== 'true') {
     return <Navigate to="/admin" state={{ from: location }} replace />
   }
-  if (role !== 'superadmin') {
-    return <Navigate to="/admin/dashboard" replace />
+  if (!is_superadmin) {
+    return (
+      <AdminContext.Provider value={{ is_superadmin: false }}>
+        <div className="page">
+          <div className="error-msg">⚠️ Non autorizzato. Accesso riservato al superamministratore.</div>
+        </div>
+      </AdminContext.Provider>
+    )
   }
-  return children
+  return (
+    <AdminContext.Provider value={{ is_superadmin: true }}>
+      {children}
+    </AdminContext.Provider>
+  )
 }
 
 export default function App() {
@@ -49,6 +72,7 @@ export default function App() {
         <Route path="/admin/recurring" element={<AdminGuard><AdminRecurring /></AdminGuard>} />
         <Route path="/admin/bookings" element={<AdminGuard><AdminBookings /></AdminGuard>} />
         <Route path="/admin/calendar" element={<AdminGuard><AdminCalendar /></AdminGuard>} />
+        <Route path="/admin/users" element={<SuperadminGuard><AdminUsers /></SuperadminGuard>} />
         <Route path="/admin/notifications" element={<SuperadminGuard><AdminNotifications /></SuperadminGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
