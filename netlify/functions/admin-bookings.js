@@ -61,7 +61,11 @@ export const handler = withErrorHandling(async function (event) {
 
     const { data, error } = await supabase
       .from('bookings')
-      .update({ teacher_name: teacher_name.trim(), class_name: class_name ? class_name.trim() : null })
+      .update({
+        teacher_name: teacher_name.trim(),
+        class_name: class_name ? class_name.trim() : null,
+        recurring_request_id: null,
+      })
       .eq('id', id)
       .select()
       .single()

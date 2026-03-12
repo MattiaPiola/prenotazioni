@@ -479,7 +479,7 @@ export default function AdminCalendar() {
                                   >
                                     🗑️ Annulla
                                   </button>
-                                  {b.source === 'single' && (
+                                  {(b.source === 'single' || b.recurring_request_id) && (
                                     <button
                                       onClick={() => handleOpenEditBooking(b)}
                                       style={{
@@ -487,7 +487,7 @@ export default function AdminCalendar() {
                                         color: 'var(--primary)', fontSize: '0.65rem', padding: '1px 0',
                                       }}
                                     >
-                                      ✏️ Modifica
+                                      ✏️ {b.source === 'recurring' ? 'Sovrascivi' : 'Modifica'}
                                     </button>
                                   )}
                                   {b.source === 'recurring' && b.recurring_request_id && (
@@ -673,9 +673,15 @@ export default function AdminCalendar() {
         <div className="modal-overlay" onClick={handleCloseBookingModal}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{bookingModal.mode === 'edit' ? '✏️ Modifica prenotazione' : '✚ Nuova prenotazione'}</h3>
+              <h3>{bookingModal.mode === 'edit' && bookingModal.booking?.source === 'recurring' ? '✏️ Sovrascivi occorrenza' : bookingModal.mode === 'edit' ? '✏️ Modifica prenotazione' : '✚ Nuova prenotazione'}</h3>
               <button className="modal-close" onClick={handleCloseBookingModal}>✕</button>
             </div>
+
+            {bookingModal.mode === 'edit' && bookingModal.booking?.source === 'recurring' && (
+              <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '0.75rem', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '0.6rem' }}>
+                ℹ️ Stai sovrascrivendo una singola occorrenza della serie ricorrente. Le modifiche si applicheranno <strong>solo a questa data</strong>; le altre occorrenze non saranno influenzate.
+              </p>
+            )}
 
             {bookingModalError && (
               <div className="error-msg" style={{ marginBottom: '0.75rem' }}>⚠️ {bookingModalError}</div>
@@ -768,7 +774,7 @@ export default function AdminCalendar() {
                       <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>⚠️ Le seguenti date hanno lo slot esaurito:</p>
                       <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
                         {bookingModalConflicts.map((c) => (
-                          <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name} – ${b.class_name}`).join(', ')}</li>
+                           <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name}${b.class_name ? ' – ' + b.class_name : ''}`).join(', ')}</li>
                         ))}
                       </ul>
                       <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>Come procedere per le date in conflitto?</p>
