@@ -72,8 +72,8 @@ export const handler = withErrorHandling(async function (event) {
 
   const { room_id, room_slot_id, date, teacher_name, class_name } = body
 
-  if (!room_id || !room_slot_id || !date || !teacher_name || !class_name) {
-    return jsonResp(400, { error: 'Missing required fields: room_id, room_slot_id, date, teacher_name, class_name' })
+  if (!room_id || !room_slot_id || !date || !teacher_name) {
+    return jsonResp(400, { error: 'Missing required fields: room_id, room_slot_id, date, teacher_name' })
   }
 
   // Validate date is within current or next week
@@ -118,7 +118,7 @@ export const handler = withErrorHandling(async function (event) {
       room_slot_id,
       date,
       teacher_name: teacher_name.trim(),
-      class_name: class_name.trim(),
+      class_name: class_name ? class_name.trim() : null,
       source: 'single',
     })
     .select()

@@ -189,14 +189,13 @@ export default function RecurringForm() {
                     />
                   </div>
                   <div className="form-group">
-                    <label htmlFor="class">Classe *</label>
+                    <label htmlFor="class">Classe</label>
                     <input
                       id="class"
                       type="text"
                       value={className}
                       onChange={(e) => setClassName(e.target.value)}
                       placeholder="Es. 3A"
-                      required
                     />
                   </div>
                 </div>
