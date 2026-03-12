@@ -270,6 +270,23 @@ export const handler = withErrorHandling(async function (event) {
     return json(200, { ok: true })
   }
 
+  // GET /api/admin/recurring-requests/:id
+  if (updateMatch && method === 'GET') {
+    const id = updateMatch[1]
+    const { data: req, error: reqErr } = await supabase
+      .from('recurring_requests')
+      .select('*, rooms(name), room_slots(start_time, end_time, label)')
+      .eq('id', id)
+      .single()
+    if (reqErr || !req) return json(404, { error: 'Request not found' })
+    try {
+      await requireRoomAccess(ctx, req.room_id, supabase)
+    } catch (err) {
+      return json(err.status || 403, { error: err.message })
+    }
+    return json(200, req)
+  }
+
   if (updateMatch && method === 'PATCH') {
     const id = updateMatch[1]
     let body
