@@ -5,6 +5,9 @@ import {
   adminGetSlots,
   adminGetBookings,
   adminCancelBooking,
+  adminCreateBooking,
+  adminUpdateBooking,
+  adminCreateRecurringBooking,
   adminGetBlockedSlots,
   adminBlockSlot,
   adminUnblockSlot,
@@ -38,6 +41,14 @@ export default function AdminCalendar() {
   const [recurringEditStartDate, setRecurringEditStartDate] = useState('')
   const [recurringEditEndDate, setRecurringEditEndDate] = useState('')
   const [recurringEditConflicts, setRecurringEditConflicts] = useState(null)
+
+  // Add/Edit booking modal state
+  const [bookingModal, setBookingModal] = useState(null)
+  // { mode: 'add', slotId, date, roomId } | { mode: 'edit', booking }
+  const [bookingForm, setBookingForm] = useState({ teacher_name: '', class_name: '', booking_type: 'single', start_date: '', end_date: '', weekdays: [] })
+  const [bookingModalLoading, setBookingModalLoading] = useState(false)
+  const [bookingModalError, setBookingModalError] = useState(null)
+  const [bookingModalConflicts, setBookingModalConflicts] = useState(null)
 
   const weekDates = getWeekDates(weekOffset)
   const dateFrom = formatDate(weekDates[0])
@@ -144,6 +155,75 @@ export default function AdminCalendar() {
       reload()
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const handleOpenAddBooking = (slotId, date) => {
+    const d = new Date(date + 'T00:00:00')
+    const weekday = d.getDay() === 0 ? 7 : d.getDay()
+    setBookingModal({ mode: 'add', slotId, date, roomId: selectedRoom })
+    setBookingForm({ teacher_name: '', class_name: '', booking_type: 'single', start_date: date, end_date: date, weekdays: [weekday] })
+    setBookingModalError(null)
+    setBookingModalConflicts(null)
+  }
+
+  const handleOpenEditBooking = (booking) => {
+    setBookingModal({ mode: 'edit', booking })
+    setBookingForm({ teacher_name: booking.teacher_name, class_name: booking.class_name || '', booking_type: 'single', start_date: '', end_date: '', weekdays: [] })
+    setBookingModalError(null)
+    setBookingModalConflicts(null)
+  }
+
+  const handleCloseBookingModal = () => {
+    setBookingModal(null)
+    setBookingModalError(null)
+    setBookingModalConflicts(null)
+  }
+
+  const handleBookingModalSubmit = async (action) => {
+    setBookingModalLoading(true)
+    setBookingModalError(null)
+    setBookingModalConflicts(null)
+    try {
+      if (bookingModal.mode === 'edit') {
+        await adminUpdateBooking(bookingModal.booking.id, {
+          teacher_name: bookingForm.teacher_name,
+          class_name: bookingForm.class_name || null,
+        })
+        handleCloseBookingModal()
+        reload()
+      } else if (bookingForm.booking_type === 'single') {
+        await adminCreateBooking({
+          room_id: bookingModal.roomId,
+          room_slot_id: bookingModal.slotId,
+          date: bookingModal.date,
+          teacher_name: bookingForm.teacher_name,
+          class_name: bookingForm.class_name || null,
+        })
+        handleCloseBookingModal()
+        reload()
+      } else {
+        const res = await adminCreateRecurringBooking({
+          room_id: bookingModal.roomId,
+          room_slot_id: bookingModal.slotId,
+          teacher_name: bookingForm.teacher_name,
+          class_name: bookingForm.class_name || null,
+          start_date: bookingForm.start_date,
+          end_date: bookingForm.end_date,
+          weekdays: bookingForm.weekdays,
+          action,
+        })
+        if (res.hasConflicts) {
+          setBookingModalConflicts(res.conflicts)
+        } else {
+          handleCloseBookingModal()
+          reload()
+        }
+      }
+    } catch (err) {
+      setBookingModalError(err.message)
+    } finally {
+      setBookingModalLoading(false)
     }
   }
 
@@ -272,7 +352,7 @@ export default function AdminCalendar() {
         </div>
 
         <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '1rem' }}>
-          💡 Clicca su uno slot libero/bloccato per bloccare/sbloccare. Clicca su una prenotazione per cancellarla. Usa 🔒/🔓 nell'intestazione per bloccare/sbloccare l'intera giornata.
+          💡 Clicca 🔒 per bloccare/sbloccare uno slot. Usa 🔒/🔓 nell'intestazione per bloccare/sbloccare l'intera giornata. Usa ✚ per aggiungere una prenotazione e ✏️ per modificarla.
         </p>
 
         {loading ? (
@@ -399,6 +479,17 @@ export default function AdminCalendar() {
                                   >
                                     🗑️ Annulla
                                   </button>
+                                  {(b.source === 'single' || b.recurring_request_id) && (
+                                    <button
+                                      onClick={() => handleOpenEditBooking(b)}
+                                      style={{
+                                        background: 'none', border: 'none', cursor: 'pointer',
+                                        color: 'var(--primary)', fontSize: '0.65rem', padding: '1px 0',
+                                      }}
+                                    >
+                                      ✏️ {b.source === 'recurring' ? 'Sovrascivi' : 'Modifica'}
+                                    </button>
+                                  )}
                                   {b.source === 'recurring' && b.recurring_request_id && (
                                     <button
                                       onClick={() => handleOpenRecurringModal(b)}
@@ -418,13 +509,24 @@ export default function AdminCalendar() {
                                 {slotBookings.length}/{maxBookings}
                               </div>
                             )}
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              style={{ fontSize: '0.7rem', padding: '2px 6px', marginTop: '2px' }}
-                              onClick={() => handleToggleBlock(slot.id, dateStr)}
-                            >
-                              🔒 Blocca
-                            </button>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                              {slotBookings.length < maxBookings && (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                  onClick={() => handleOpenAddBooking(slot.id, dateStr)}
+                                >
+                                  ✚ Aggiungi
+                                </button>
+                              )}
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                onClick={() => handleToggleBlock(slot.id, dateStr)}
+                              >
+                                🔒 Blocca
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -515,7 +617,7 @@ export default function AdminCalendar() {
                             <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>⚠️ Le seguenti date hanno lo slot esaurito:</p>
                             <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
                               {recurringEditConflicts.map((c) => (
-                                <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name} – ${b.class_name}`).join(', ')}</li>
+                                <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name}${b.class_name ? ' – ' + b.class_name : ''}`).join(', ')}</li>
                               ))}
                             </ul>
                             <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>Come procedere per le date in conflitto?</p>
@@ -562,6 +664,141 @@ export default function AdminCalendar() {
             ) : recurringModalError ? (
               <div className="error-msg">⚠️ {recurringModalError}</div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit booking modal */}
+      {bookingModal && (
+        <div className="modal-overlay" onClick={handleCloseBookingModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{bookingModal.mode === 'edit' && bookingModal.booking?.source === 'recurring' ? '✏️ Sovrascivi occorrenza' : bookingModal.mode === 'edit' ? '✏️ Modifica prenotazione' : '✚ Nuova prenotazione'}</h3>
+              <button className="modal-close" onClick={handleCloseBookingModal}>✕</button>
+            </div>
+
+            {bookingModal.mode === 'edit' && bookingModal.booking?.source === 'recurring' && (
+              <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '0.75rem', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '0.6rem' }}>
+                ℹ️ Stai sovrascrivendo una singola occorrenza della serie ricorrente. Le modifiche si applicheranno <strong>solo a questa data</strong>; le altre occorrenze non saranno influenzate.
+              </p>
+            )}
+
+            {bookingModalError && (
+              <div className="error-msg" style={{ marginBottom: '0.75rem' }}>⚠️ {bookingModalError}</div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleBookingModalSubmit() }}>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label>Docente *</label>
+                <input
+                  type="text"
+                  value={bookingForm.teacher_name}
+                  onChange={(e) => setBookingForm((f) => ({ ...f, teacher_name: e.target.value }))}
+                  placeholder="Es. Prof. Rossi"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label>Classe</label>
+                <input
+                  type="text"
+                  value={bookingForm.class_name}
+                  onChange={(e) => setBookingForm((f) => ({ ...f, class_name: e.target.value }))}
+                  placeholder="Es. 3A"
+                />
+              </div>
+
+              {bookingModal.mode === 'add' && (
+                <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                  <label>Tipo</label>
+                  <select
+                    value={bookingForm.booking_type}
+                    onChange={(e) => setBookingForm((f) => ({ ...f, booking_type: e.target.value }))}
+                  >
+                    <option value="single">Singola ({bookingModal.date})</option>
+                    <option value="recurring">Ricorrente</option>
+                  </select>
+                </div>
+              )}
+
+              {bookingModal.mode === 'add' && bookingForm.booking_type === 'recurring' && (
+                <>
+                  <div className="form-row" style={{ marginBottom: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Data inizio *</label>
+                      <input
+                        type="date"
+                        value={bookingForm.start_date}
+                        onChange={(e) => setBookingForm((f) => ({ ...f, start_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Data fine *</label>
+                      <input
+                        type="date"
+                        value={bookingForm.end_date}
+                        min={bookingForm.start_date}
+                        onChange={(e) => setBookingForm((f) => ({ ...f, end_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                    <label>Giorni della settimana *</label>
+                    <div className="checkbox-group">
+                      {DAY_NAMES.map((name, i) => {
+                        const val = i + 1
+                        return (
+                          <label key={val} className="checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={bookingForm.weekdays.includes(val)}
+                              onChange={() => setBookingForm((f) => ({
+                                ...f,
+                                weekdays: f.weekdays.includes(val)
+                                  ? f.weekdays.filter((d) => d !== val)
+                                  : [...f.weekdays, val],
+                              }))}
+                            />
+                            {name}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {bookingModalConflicts && (
+                    <div style={{ marginBottom: '0.75rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+                      <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>⚠️ Le seguenti date hanno lo slot esaurito:</p>
+                      <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
+                        {bookingModalConflicts.map((c) => (
+                           <li key={c.date}><strong>{c.date}</strong>: {c.existing.map((b) => `${b.teacher_name}${b.class_name ? ' – ' + b.class_name : ''}`).join(', ')}</li>
+                        ))}
+                      </ul>
+                      <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>Come procedere per le date in conflitto?</p>
+                      <div className="request-card-actions">
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => handleBookingModalSubmit('force')} disabled={bookingModalLoading}>🔄 Sovrascrivi</button>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleBookingModalSubmit('skip')} disabled={bookingModalLoading}>⏭️ Salta conflitti</button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setBookingModalConflicts(null)} disabled={bookingModalLoading}>Annulla</button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!bookingModalConflicts && (
+                <div className="request-card-actions">
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={bookingModalLoading}>
+                    {bookingModalLoading ? '...' : bookingModal.mode === 'edit' ? '💾 Salva' : '✚ Aggiungi'}
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleCloseBookingModal} disabled={bookingModalLoading}>
+                    Annulla
+                  </button>
+                </div>
+              )}
+            </form>
           </div>
         </div>
       )}

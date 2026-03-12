@@ -420,6 +420,126 @@ export const handler = withErrorHandling(async function (event) {
     })
   }
 
+  // POST /api/admin/recurring-requests — create and auto-approve a recurring booking
+  if (/recurring-requests$/.test(path) && method === 'POST') {
+    let body
+    try { body = JSON.parse(event.body || '{}') } catch (_) { body = {} }
+    const { room_id, room_slot_id, teacher_name, class_name, start_date, end_date, weekdays, action } = body
+
+    if (!room_id || !room_slot_id || !teacher_name || !teacher_name.trim() || !start_date || !end_date || !Array.isArray(weekdays) || weekdays.length === 0) {
+      return json(400, { error: 'Campi obbligatori mancanti' })
+    }
+
+    if (!ctx.is_superadmin) {
+      try { await requireRoomAccess(ctx, room_id, supabase) } catch (err) {
+        return json(err.status || 403, { error: err.message })
+      }
+    }
+
+    const newStart = new Date(start_date + 'T00:00:00')
+    const newEnd = new Date(end_date + 'T00:00:00')
+    if (newEnd < newStart) return json(400, { error: 'end_date must be after start_date' })
+    const diffDays = (newEnd - newStart) / (1000 * 60 * 60 * 24)
+    if (diffDays > 365) return json(400, { error: 'Date range cannot exceed 365 days' })
+
+    // Generate dates matching the weekdays
+    const dates = []
+    for (let d = new Date(newStart); d <= newEnd; d.setDate(d.getDate() + 1)) {
+      const weekday = d.getDay() === 0 ? 7 : d.getDay()
+      if (weekdays.includes(weekday)) dates.push(formatDate(new Date(d)))
+    }
+
+    const { data: slotData, error: slotErr } = await supabase.from('room_slots').select('max_bookings').eq('id', room_slot_id).single()
+    if (slotErr || !slotData) return json(404, { error: 'Slot not found' })
+    const maxBookings = slotData.max_bookings || 1
+
+    const conflictItems = []
+    const clearItems = []
+    for (const date of dates) {
+      const { data: existing, error: findErr } = await supabase
+        .from('bookings')
+        .select('id, teacher_name, class_name, source')
+        .eq('room_id', room_id)
+        .eq('room_slot_id', room_slot_id)
+        .eq('date', date)
+      if (findErr) return json(500, { error: findErr.message })
+      if (existing && existing.length >= maxBookings) {
+        conflictItems.push({ date, existing })
+      } else {
+        clearItems.push(date)
+      }
+    }
+
+    if (conflictItems.length > 0 && !action) {
+      return json(409, {
+        error: 'conflicts',
+        conflicts: conflictItems.map(({ date, existing }) => ({
+          date,
+          existing: existing.map((b) => ({ id: b.id, teacher_name: b.teacher_name, class_name: b.class_name, source: b.source })),
+        })),
+      })
+    }
+
+    // Create the recurring request with approved status
+    const { data: req, error: reqErr } = await supabase
+      .from('recurring_requests')
+      .insert({
+        room_id,
+        room_slot_id,
+        teacher_name: teacher_name.trim(),
+        class_name: class_name ? class_name.trim() : null,
+        start_date,
+        end_date,
+        weekdays,
+        status: 'approved',
+        decided_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+    if (reqErr) return json(500, { error: reqErr.message })
+
+    const overwritten = []
+    const inserted = []
+
+    for (const date of clearItems) {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert({ room_id, room_slot_id, date, teacher_name: teacher_name.trim(), class_name: class_name ? class_name.trim() : null, source: 'recurring', recurring_request_id: req.id })
+        .select()
+        .single()
+      if (error) return json(500, { error: error.message })
+      inserted.push(data)
+    }
+
+    if (action === 'force') {
+      for (const { date, existing } of conflictItems) {
+        const { error: deleteErr } = await supabase.from('bookings').delete().in('id', existing.map((b) => b.id))
+        if (deleteErr) return json(500, { error: deleteErr.message })
+        overwritten.push(date)
+        const { data, error } = await supabase
+          .from('bookings')
+          .insert({ room_id, room_slot_id, date, teacher_name: teacher_name.trim(), class_name: class_name ? class_name.trim() : null, source: 'recurring', recurring_request_id: req.id })
+          .select()
+          .single()
+        if (error) return json(500, { error: error.message })
+        inserted.push(data)
+      }
+    }
+
+    await emitEvent('recurring_request_approved', {
+      room_id,
+      payload: { room_slot_id, start_date, end_date, teacher_name, class_name },
+    })
+
+    return json(201, {
+      ok: true,
+      request: req,
+      inserted: inserted.length,
+      overwritten,
+      skipped: action === 'skip' ? conflictItems.map(({ date }) => date) : [],
+    })
+  }
+
   if (method === 'GET') {
     const params = event.queryStringParameters || {}
     const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
