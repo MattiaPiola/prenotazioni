@@ -12,6 +12,7 @@ import AdminRecurring from './pages/AdminRecurring.jsx'
 import AdminBookings from './pages/AdminBookings.jsx'
 import AdminCalendar from './pages/AdminCalendar.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
+import AdminNotifications from './pages/AdminNotifications.jsx'
 
 export const AdminContext = createContext({ is_superadmin: false })
 
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/admin/bookings" element={<AdminGuard><AdminBookings /></AdminGuard>} />
         <Route path="/admin/calendar" element={<AdminGuard><AdminCalendar /></AdminGuard>} />
         <Route path="/admin/users" element={<SuperadminGuard><AdminUsers /></SuperadminGuard>} />
+        <Route path="/admin/notifications" element={<SuperadminGuard><AdminNotifications /></SuperadminGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,6 @@
 import { getSupabase } from './_supabase.js'
 import { withErrorHandling } from './_handler.js'
+import { emitEvent } from './_notify.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -34,14 +35,27 @@ export const handler = withErrorHandling(async function (event) {
   const deleteMatch = event.path.match(/bookings\/([^/]+)$/)
   if (deleteMatch && method === 'DELETE') {
     const id = deleteMatch[1]
-    // Fetch booking to get room_id
-    const { data: booking, error: fetchErr } = await supabase.from('bookings').select('room_id').eq('id', id).single()
+    // Fetch booking to get room_id and details for notification
+    const { data: booking, error: fetchErr } = await supabase
+      .from('bookings')
+      .select('room_id, room_slot_id, date, teacher_name, class_name')
+      .eq('id', id)
+      .single()
     if (fetchErr || !booking) return jsonResp(404, { error: 'Booking not found' })
     // Check room allows user edits
     const { data: room } = await supabase.from('rooms').select('allow_user_edit').eq('id', booking.room_id).single()
     if (!room || !room.allow_user_edit) return jsonResp(403, { error: 'La cancellazione non è consentita per questa aula.' })
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return jsonResp(500, { error: error.message })
+    await emitEvent('booking_cancelled', {
+      room_id: booking.room_id,
+      payload: {
+        room_slot_id: booking.room_slot_id,
+        date: booking.date,
+        teacher_name: booking.teacher_name,
+        class_name: booking.class_name,
+      },
+    })
     return jsonResp(204, {})
   }
 
@@ -113,6 +127,11 @@ export const handler = withErrorHandling(async function (event) {
   if (error) {
     return jsonResp(500, { error: error.message })
   }
+
+  await emitEvent('booking_created', {
+    room_id,
+    payload: { room_slot_id, date, teacher_name, class_name },
+  })
 
   return jsonResp(201, data)
 })

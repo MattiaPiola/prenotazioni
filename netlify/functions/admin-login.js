@@ -42,8 +42,9 @@ export const handler = withErrorHandling(async function (event) {
   const hash = crypto.createHash('sha256').update(code).digest('hex')
   const expectedHash = process.env.ADMIN_CODE_HASH || ''
 
-  // Check superadmin first
-  if (expectedHash && hash === expectedHash) {
+  // Check superadmin first (supports both ADMIN_CODE_HASH and SUPERADMIN_CODE_HASH env vars)
+  const superadminHash = process.env.SUPERADMIN_CODE_HASH || expectedHash
+  if (superadminHash && hash === superadminHash) {
     const cookie = setSessionCookie({ role: 'admin', is_superadmin: true, admin_user_id: null, iat: Date.now() })
     return {
       statusCode: 200,

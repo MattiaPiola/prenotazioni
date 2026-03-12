@@ -1,6 +1,7 @@
 import { getSupabase } from './_supabase.js'
 import { requireAdmin, requireRoomAccess, getPermittedRoomIds } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
+import { emitEvent } from './_notify.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -46,18 +47,34 @@ export const handler = withErrorHandling(async function (event) {
 
   if (deleteMatch && method === 'DELETE') {
     const id = deleteMatch[1]
+    // Fetch booking data (for notification emit and room-access check)
+    const { data: bookingToCancel } = await supabase
+      .from('bookings')
+      .select('room_id, room_slot_id, date, teacher_name, class_name')
+      .eq('id', id)
+      .single()
+    if (!bookingToCancel) return json(404, { error: 'Booking not found' })
     // For room-admins, verify they have access to the booking's room
     if (!ctx.is_superadmin) {
-      const { data: booking } = await supabase.from('bookings').select('room_id').eq('id', id).single()
-      if (!booking) return json(404, { error: 'Booking not found' })
       try {
-        await requireRoomAccess(ctx, booking.room_id, supabase)
+        await requireRoomAccess(ctx, bookingToCancel.room_id, supabase)
       } catch (err) {
         return json(err.status || 403, { error: err.message })
       }
     }
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return json(500, { error: error.message })
+    if (bookingToCancel) {
+      await emitEvent('booking_cancelled', {
+        room_id: bookingToCancel.room_id,
+        payload: {
+          room_slot_id: bookingToCancel.room_slot_id,
+          date: bookingToCancel.date,
+          teacher_name: bookingToCancel.teacher_name,
+          class_name: bookingToCancel.class_name,
+        },
+      })
+    }
     return json(204, {})
   }
 

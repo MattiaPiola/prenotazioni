@@ -84,6 +84,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/notification-rules/*"
+  to = "/.netlify/functions/admin-notification-rules"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/notification-rules"
+  to = "/.netlify/functions/admin-notification-rules"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/blocked-slots/*"
   to = "/.netlify/functions/admin-blocked-slots"
   status = 200
