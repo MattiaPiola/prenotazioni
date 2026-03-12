@@ -61,7 +61,8 @@ export const handler = withErrorHandling(async function (event) {
       }
       query = query.eq('room_id', params.room_id)
     } else if (permittedRoomIds !== null) {
-      query = query.in('room_id', permittedRoomIds.length > 0 ? permittedRoomIds : ['00000000-0000-0000-0000-000000000000'])
+      if (permittedRoomIds.length === 0) return json(200, [])
+      query = query.in('room_id', permittedRoomIds)
     }
     if (params.date_from) query = query.gte('date', params.date_from)
     if (params.date_to) query = query.lte('date', params.date_to)

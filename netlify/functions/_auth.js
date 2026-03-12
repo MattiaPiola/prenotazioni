@@ -33,7 +33,8 @@ function getCookies(event) {
 }
 
 // Returns { is_superadmin, admin_user_id }
-// Old sessions (no is_superadmin field) are treated as superadmin for backward compatibility.
+// Old sessions (before multi-admin support was added) had no is_superadmin field.
+// Using !== false treats missing field as true for backward compatibility with existing deployments.
 export function requireAdmin(event) {
   const cookies = getCookies(event)
   const token = cookies[COOKIE_NAME]

@@ -70,10 +70,12 @@ export const handler = withErrorHandling(async function (event) {
 
   if (method === 'GET') {
     const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
+    if (permittedRoomIds !== null && permittedRoomIds.length === 0) {
+      return json(200, [])
+    }
     let query = supabase.from('rooms').select('*').order('name')
     if (permittedRoomIds !== null) {
-      // room-admin: filter to assigned rooms only
-      query = query.in('id', permittedRoomIds.length > 0 ? permittedRoomIds : ['00000000-0000-0000-0000-000000000000'])
+      query = query.in('id', permittedRoomIds)
     }
     const { data, error } = await query
     if (error) return json(500, { error: error.message })

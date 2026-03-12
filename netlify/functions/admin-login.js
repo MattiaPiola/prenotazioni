@@ -73,7 +73,18 @@ export const handler = withErrorHandling(async function (event) {
     }
   }
 
-  const matchedUser = (adminUsers || []).find((u) => u.code_hash === hash)
+  // Use timing-safe comparison to prevent hash timing attacks
+  const providedHashBuf = Buffer.from(hash, 'hex')
+  let matchedUser = null
+  for (const u of (adminUsers || [])) {
+    const storedHashBuf = Buffer.from(u.code_hash, 'hex')
+    if (
+      storedHashBuf.length === providedHashBuf.length &&
+      crypto.timingSafeEqual(storedHashBuf, providedHashBuf)
+    ) {
+      if (!matchedUser) matchedUser = u
+    }
+  }
   if (matchedUser) {
     const cookie = setSessionCookie({ role: 'admin', is_superadmin: false, admin_user_id: matchedUser.id, iat: Date.now() })
     return {

@@ -388,7 +388,8 @@ export const handler = withErrorHandling(async function (event) {
       query = query.eq('status', params.status)
     }
     if (permittedRoomIds !== null) {
-      query = query.in('room_id', permittedRoomIds.length > 0 ? permittedRoomIds : ['00000000-0000-0000-0000-000000000000'])
+      if (permittedRoomIds.length === 0) return json(200, [])
+      query = query.in('room_id', permittedRoomIds)
     }
     const { data, error } = await query
     if (error) return json(500, { error: error.message })
