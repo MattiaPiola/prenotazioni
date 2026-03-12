@@ -15,6 +15,8 @@ export const handler = withErrorHandling(async function (event) {
   const { data, error } = await supabase
     .from('rooms')
     .select('*')
+    .eq('active', true)
+    .order('sort_order')
     .order('name')
 
   if (error) {
