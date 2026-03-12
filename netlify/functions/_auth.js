@@ -37,12 +37,25 @@ export function requireAdmin(event) {
   const token = cookies[COOKIE_NAME]
   const secret = process.env.SESSION_SIGNING_SECRET || 'dev-secret'
   const payload = verifySession(token, secret)
-  if (!payload || payload.role !== 'admin') {
+  if (!payload || (payload.role !== 'admin' && payload.role !== 'superadmin')) {
     const err = new Error('Unauthorized')
     err.status = 401
     throw err
   }
-  return true
+  return payload
+}
+
+export function requireSuperadmin(event) {
+  const cookies = getCookies(event)
+  const token = cookies[COOKIE_NAME]
+  const secret = process.env.SESSION_SIGNING_SECRET || 'dev-secret'
+  const payload = verifySession(token, secret)
+  if (!payload || payload.role !== 'superadmin') {
+    const err = new Error('Unauthorized')
+    err.status = 401
+    throw err
+  }
+  return payload
 }
 
 export function setSessionCookie(payload) {

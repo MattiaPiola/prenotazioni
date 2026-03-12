@@ -10,12 +10,26 @@ import AdminSlots from './pages/AdminSlots.jsx'
 import AdminRecurring from './pages/AdminRecurring.jsx'
 import AdminBookings from './pages/AdminBookings.jsx'
 import AdminCalendar from './pages/AdminCalendar.jsx'
+import AdminNotifications from './pages/AdminNotifications.jsx'
 
 function AdminGuard({ children }) {
   const auth = localStorage.getItem('admin_authenticated')
   const location = useLocation()
   if (auth !== 'true') {
     return <Navigate to="/admin" state={{ from: location }} replace />
+  }
+  return children
+}
+
+function SuperadminGuard({ children }) {
+  const auth = localStorage.getItem('admin_authenticated')
+  const role = localStorage.getItem('admin_role')
+  const location = useLocation()
+  if (auth !== 'true') {
+    return <Navigate to="/admin" state={{ from: location }} replace />
+  }
+  if (role !== 'superadmin') {
+    return <Navigate to="/admin/dashboard" replace />
   }
   return children
 }
@@ -35,6 +49,7 @@ export default function App() {
         <Route path="/admin/recurring" element={<AdminGuard><AdminRecurring /></AdminGuard>} />
         <Route path="/admin/bookings" element={<AdminGuard><AdminBookings /></AdminGuard>} />
         <Route path="/admin/calendar" element={<AdminGuard><AdminCalendar /></AdminGuard>} />
+        <Route path="/admin/notifications" element={<SuperadminGuard><AdminNotifications /></SuperadminGuard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -1,5 +1,6 @@
 import { getSupabase } from './_supabase.js'
 import { withErrorHandling } from './_handler.js'
+import { emitEvent } from './_notify.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -95,6 +96,11 @@ export const handler = withErrorHandling(async function (event) {
       body: JSON.stringify({ error: error.message }),
     }
   }
+
+  await emitEvent('recurring_request_created', {
+    room_id,
+    payload: { room_slot_id, start_date, end_date, teacher_name, class_name },
+  })
 
   return {
     statusCode: 201,

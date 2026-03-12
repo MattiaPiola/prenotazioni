@@ -1,6 +1,7 @@
 import { getSupabase } from './_supabase.js'
 import { requireAdmin } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
+import { emitEvent } from './_notify.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -196,6 +197,17 @@ export const handler = withErrorHandling(async function (event) {
       .eq('id', id)
     if (updateErr) return json(500, { error: updateErr.message })
 
+    await emitEvent('recurring_request_approved', {
+      room_id: req.room_id,
+      payload: {
+        room_slot_id: req.room_slot_id,
+        start_date: req.start_date,
+        end_date: req.end_date,
+        teacher_name: req.teacher_name,
+        class_name: req.class_name,
+      },
+    })
+
     return json(200, {
       ok: true,
       inserted: inserted.length,
@@ -210,11 +222,31 @@ export const handler = withErrorHandling(async function (event) {
     try { body = JSON.parse(event.body || '{}') } catch (_) { body = {} }
     const { notes } = body
 
+    const { data: reqTodeny, error: fetchErr } = await supabase
+      .from('recurring_requests')
+      .select('room_id, room_slot_id, start_date, end_date, teacher_name, class_name')
+      .eq('id', id)
+      .single()
+
     const { error } = await supabase
       .from('recurring_requests')
       .update({ status: 'denied', decided_at: new Date().toISOString(), admin_notes: notes || null })
       .eq('id', id)
     if (error) return json(500, { error: error.message })
+
+    if (!fetchErr && reqTodeny) {
+      await emitEvent('recurring_request_denied', {
+        room_id: reqTodeny.room_id,
+        payload: {
+          room_slot_id: reqTodeny.room_slot_id,
+          start_date: reqTodeny.start_date,
+          end_date: reqTodeny.end_date,
+          teacher_name: reqTodeny.teacher_name,
+          class_name: reqTodeny.class_name,
+        },
+      })
+    }
+
     return json(200, { ok: true })
   }
 

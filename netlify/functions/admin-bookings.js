@@ -1,6 +1,7 @@
 import { getSupabase } from './_supabase.js'
 import { requireAdmin } from './_auth.js'
 import { withErrorHandling } from './_handler.js'
+import { emitEvent } from './_notify.js'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -45,8 +46,24 @@ export const handler = withErrorHandling(async function (event) {
 
   if (deleteMatch && method === 'DELETE') {
     const id = deleteMatch[1]
+    const { data: bookingToCancel } = await supabase
+      .from('bookings')
+      .select('room_id, room_slot_id, date, teacher_name, class_name')
+      .eq('id', id)
+      .single()
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return json(500, { error: error.message })
+    if (bookingToCancel) {
+      await emitEvent('booking_cancelled', {
+        room_id: bookingToCancel.room_id,
+        payload: {
+          room_slot_id: bookingToCancel.room_slot_id,
+          date: bookingToCancel.date,
+          teacher_name: bookingToCancel.teacher_name,
+          class_name: bookingToCancel.class_name,
+        },
+      })
+    }
     return json(204, {})
   }
 
