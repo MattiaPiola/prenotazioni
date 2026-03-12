@@ -13,8 +13,9 @@ export default function AdminLogin() {
     setError(null)
     setLoading(true)
     try {
-      await adminLogin(code)
+      const { role } = await adminLogin(code)
       localStorage.setItem('admin_authenticated', 'true')
+      localStorage.setItem('admin_role', role || 'admin')
       navigate('/admin/dashboard', { replace: true })
     } catch (err) {
       if (err.status === 401) {

@@ -37,11 +37,21 @@ export const handler = withErrorHandling(async function (event) {
     }
   }
 
-  // Hash the provided code with SHA-256 and compare to ADMIN_CODE_HASH env var
+  // Hash the provided code with SHA-256
   const hash = crypto.createHash('sha256').update(code).digest('hex')
-  const expectedHash = process.env.ADMIN_CODE_HASH || ''
 
-  if (!expectedHash || hash !== expectedHash) {
+  // Check superadmin code first, then admin code
+  const superadminHash = process.env.SUPERADMIN_CODE_HASH || ''
+  const adminHash = process.env.ADMIN_CODE_HASH || ''
+
+  let role = null
+  if (superadminHash && hash === superadminHash) {
+    role = 'superadmin'
+  } else if (adminHash && hash === adminHash) {
+    role = 'admin'
+  }
+
+  if (!role) {
     return {
       statusCode: 401,
       headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -49,7 +59,7 @@ export const handler = withErrorHandling(async function (event) {
     }
   }
 
-  const cookie = setSessionCookie({ role: 'admin', iat: Date.now() })
+  const cookie = setSessionCookie({ role, iat: Date.now() })
 
   return {
     statusCode: 200,
@@ -58,6 +68,6 @@ export const handler = withErrorHandling(async function (event) {
       'Content-Type': 'application/json',
       'Set-Cookie': cookie,
     },
-    body: JSON.stringify({ ok: true }),
+    body: JSON.stringify({ ok: true, role }),
   }
 })

@@ -165,3 +165,14 @@ export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.blob()
 }
+
+export const adminGetNotificationRules = () => apiFetch('/api/admin/notification-rules')
+
+export const adminCreateNotificationRule = (data) =>
+  apiFetch('/api/admin/notification-rules', { method: 'POST', body: JSON.stringify(data) })
+
+export const adminUpdateNotificationRule = (id, data) =>
+  apiFetch(`/api/admin/notification-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const adminDeleteNotificationRule = (id) =>
+  apiFetch(`/api/admin/notification-rules/${id}`, { method: 'DELETE' })
