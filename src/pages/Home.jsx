@@ -25,6 +25,15 @@ export default function Home() {
         <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>
           {weekLabel}
         </span>
+        <Link
+          to="/admin"
+          className="nav-back"
+          style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '0.85rem' }}
+          title="Pannello amministratore"
+          aria-label="Pannello amministratore"
+        >
+          ⚙️
+        </Link>
       </nav>
 
       <div className="page">
