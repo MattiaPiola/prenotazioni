@@ -111,7 +111,7 @@ export default function AdminUsers() {
         {/* Add new admin-user */}
         <div className="card" style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showNew ? '1rem' : 0 }}>
-            <h2>Nuovo amministratore aula</h2>
+            <h2>Nuovo amministratore laboratorio</h2>
             <button className="btn btn-primary btn-sm" onClick={() => setShowNew(!showNew)}>
               {showNew ? 'Annulla' : '+ Aggiungi'}
             </button>
@@ -141,7 +141,7 @@ export default function AdminUsers() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Aule assegnate</label>
+                  <label>Laboratori assegnati</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
                     {rooms.map((room) => {
                       const selected = newForm.room_ids.includes(room.id)
@@ -166,7 +166,7 @@ export default function AdminUsers() {
                         </label>
                       )
                     })}
-                    {rooms.length === 0 && <span style={{ color: 'var(--gray-700)', fontSize: '0.875rem' }}>Nessuna aula disponibile</span>}
+                    {rooms.length === 0 && <span style={{ color: 'var(--gray-700)', fontSize: '0.875rem' }}>Nessun laboratorio disponibile</span>}
                   </div>
                 </div>
                 <div>
@@ -181,7 +181,7 @@ export default function AdminUsers() {
 
         {/* Admin users list */}
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Amministratori aule</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Amministratori laboratori</h2>
 
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
@@ -222,7 +222,7 @@ export default function AdminUsers() {
                         </label>
                       </div>
                       <div className="form-group">
-                        <label>Aule assegnate</label>
+                        <label>Laboratori assegnati</label>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
                           {rooms.map((room) => {
                             const selected = editForm.room_ids.includes(room.id)
@@ -274,7 +274,7 @@ export default function AdminUsers() {
                           )}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--gray-700)', marginTop: '0.25rem' }}>
-                          Aule:{' '}
+                          Laboratori:{' '}
                           {(user.admin_room_permissions || []).length === 0
                             ? 'Nessuna'
                             : (user.admin_room_permissions || []).map((p) => p.rooms?.name || p.room_id).join(', ')}

@@ -16,21 +16,21 @@ export default function AdminDashboard() {
   }
 
   const sections = [
-    { icon: '🏫', title: 'Gestione Aule', desc: 'Aggiungi, modifica, elimina aule', to: '/admin/rooms' },
+    { icon: '🏫', title: 'Gestione Laboratori', desc: 'Aggiungi, modifica, elimina laboratori', to: '/admin/rooms' },
     { icon: '📋', title: 'Richieste Ricorrenti', desc: 'Approva o nega richieste', to: '/admin/recurring' },
     { icon: '📅', title: 'Prenotazioni', desc: 'Visualizza e gestisci prenotazioni', to: '/admin/bookings' },
     { icon: '🗓️', title: 'Calendario', desc: 'Visualizza calendario, blocca slot', to: '/admin/calendar' },
   ]
 
   const superadminSections = [
-    { icon: '👥', title: 'Amministratori', desc: 'Gestisci account admin delle aule', to: '/admin/users' },
+    { icon: '👥', title: 'Amministratori', desc: 'Gestisci account admin dei laboratori', to: '/admin/users' },
     { icon: '🔔', title: 'Notifiche Telegram', desc: 'Configura notifiche per eventi', to: '/admin/notifications' },
   ]
 
   return (
     <>
       <nav className="nav">
-        <span className="nav-brand">🖥️ Admin</span>
+        <span className="nav-brand">🔬 Admin</span>
         <div className="nav-actions">
           <button className="nav-back" onClick={handleLogout}>
             Esci
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
       <div className="page">
         <h1 style={{ marginBottom: '0.25rem' }}>Pannello di amministrazione</h1>
         <p style={{ color: 'var(--gray-700)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-          Gestisci aule, orari e prenotazioni del sistema.
+          Gestisci laboratori, orari e prenotazioni del sistema.
         </p>
 
         <div className="admin-grid">
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
 
         <div style={{ marginTop: '2rem' }}>
           <Link to="/" className="btn btn-outline">
-            🖥️ Visualizza sito pubblico
+            🔬 Visualizza sito pubblico
           </Link>
         </div>
       </div>

@@ -123,7 +123,7 @@ export default function WeekView() {
             </div>
 
             {slots.length === 0 ? (
-              <div className="empty-state">Nessun orario configurato per questa aula.</div>
+              <div className="empty-state">Nessun orario configurato per questo laboratorio.</div>
             ) : (
               <div className="week-grid-wrapper">
                 <div className="week-grid">

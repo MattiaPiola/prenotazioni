@@ -1,13 +1,13 @@
-# Prenotazioni Aule Informatica
+# Prenotazione laboratori
 
-Sistema di prenotazione aule informatica scolastiche, costruito con React + Vite + Netlify Functions + Supabase.
+Sistema di prenotazione laboratori scolastici, costruito con React + Vite + Netlify Functions + Supabase.
 
 ## Funzionalità
 
 - **Vista settimanale**: visualizza le prenotazioni della settimana corrente e di quella successiva
-- **Prenotazione singola**: prenota un'aula per una specifica data e ora
+- **Prenotazione singola**: prenota un laboratorio per una specifica data e ora
 - **Prenotazione ricorrente**: invia una richiesta di prenotazione periodica (soggetta ad approvazione admin)
-- **Pannello amministratore**: gestisci aule, orari, approva richieste ricorrenti, visualizza ed esporta prenotazioni
+- **Pannello amministratore**: gestisci laboratori, orari, approva richieste ricorrenti, visualizza ed esporta prenotazioni
 
 ## Stack tecnologico
 
@@ -92,11 +92,11 @@ supabase/migrations/001_initial.sql
 
 | Tabella | Descrizione |
 |---------|-------------|
-| `rooms` | Aule informatiche |
-| `room_slots` | Fasce orarie per ogni aula |
+| `rooms` | Laboratori |
+| `room_slots` | Fasce orarie per ogni laboratorio |
 | `bookings` | Prenotazioni singole e ricorrenti |
 | `recurring_requests` | Richieste di prenotazione periodica |
 
 ## Utilizzo admin
 
-Accedi su `/admin` col codice. Dal dashboard gestisci aule e orari, approva richieste ricorrenti, filtra/esporta prenotazioni in CSV.
+Accedi su `/admin` col codice. Dal dashboard gestisci laboratori e orari, approva richieste ricorrenti, filtra/esporta prenotazioni in CSV.

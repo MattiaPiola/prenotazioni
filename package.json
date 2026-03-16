@@ -1,7 +1,7 @@
 {
   "name": "prenotazioni",
   "version": "1.0.0",
-  "description": "School computer room booking system",
+  "description": "Sistema di prenotazione laboratori scolastici",
   "type": "module",
   "scripts": {
     "dev": "vite",
