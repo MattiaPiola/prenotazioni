@@ -88,7 +88,7 @@ export default function AdminBookings() {
             />
           </div>
           <div className="form-group">
-            <label>Aula</label>
+            <label>Laboratorio</label>
             <select value={filters.room_id} onChange={(e) => setFilters({ ...filters, room_id: e.target.value })}>
               <option value="">Tutte</option>
               {rooms.map((r) => (
@@ -117,7 +117,7 @@ export default function AdminBookings() {
               <thead>
                 <tr>
                   <th>Data</th>
-                  <th>Aula</th>
+                  <th>Laboratorio</th>
                   <th>Orario</th>
                   <th>Docente</th>
                   <th>Classe</th>

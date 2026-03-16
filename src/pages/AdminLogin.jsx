@@ -31,7 +31,7 @@ export default function AdminLogin() {
   return (
     <>
       <nav className="nav">
-        <span className="nav-brand">🖥️ Prenotazioni Aule</span>
+        <span className="nav-brand">🔬 Prenotazione laboratori</span>
       </nav>
 
       <div className="page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '3rem' }}>

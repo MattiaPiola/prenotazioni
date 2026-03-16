@@ -44,7 +44,7 @@ export const handler = withErrorHandling(async function (event) {
     if (fetchErr || !booking) return jsonResp(404, { error: 'Booking not found' })
     // Check room allows user edits
     const { data: room } = await supabase.from('rooms').select('allow_user_edit').eq('id', booking.room_id).single()
-    if (!room || !room.allow_user_edit) return jsonResp(403, { error: 'La cancellazione non è consentita per questa aula.' })
+    if (!room || !room.allow_user_edit) return jsonResp(403, { error: 'La cancellazione non è consentita per questo laboratorio.' })
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return jsonResp(500, { error: error.message })
     await emitEvent('booking_cancelled', {

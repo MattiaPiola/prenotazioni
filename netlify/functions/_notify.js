@@ -123,7 +123,7 @@ function buildMessage(eventType, payload = {}) {
       lines.push(`Evento: ${eventType}`)
   }
 
-  if (room_name) lines.push(`Aula: ${room_name}`)
+  if (room_name) lines.push(`Laboratorio: ${room_name}`)
   if (date) lines.push(`Data: ${date}`)
   if (start_date && end_date) lines.push(`Periodo: ${start_date} – ${end_date}`)
   if (slot_label) lines.push(`Orario: ${slot_label}`)

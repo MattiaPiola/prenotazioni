@@ -325,7 +325,7 @@ export default function AdminCalendar() {
         {/* Controls */}
         <div className="filter-bar" style={{ marginBottom: '1rem' }}>
           <div className="form-group">
-            <label>Aula</label>
+            <label>Laboratorio</label>
             <select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>{r.name}</option>
@@ -358,7 +358,7 @@ export default function AdminCalendar() {
         {loading ? (
           <div className="loading"><div className="spinner" /></div>
         ) : slots.length === 0 ? (
-          <div className="empty-state">Nessun orario configurato per questa aula.</div>
+          <div className="empty-state">Nessun orario configurato per questo laboratorio.</div>
         ) : (
           <div className="week-grid-wrapper">
             <div className="week-grid">

@@ -63,7 +63,7 @@ export default function AdminRooms() {
   }
 
   const handleDelete = async (id, name) => {
-    if (!confirm(`Eliminare l'aula "${name}"? Verranno eliminate anche tutte le prenotazioni associate.`)) return
+    if (!confirm(`Eliminare il laboratorio "${name}"? Verranno eliminate anche tutte le prenotazioni associate.`)) return
     try {
       await adminDeleteRoom(id)
       load()
@@ -73,7 +73,7 @@ export default function AdminRooms() {
   }
 
   const handleDuplicate = async (id, name) => {
-    if (!confirm(`Duplicare l'aula "${name}" con tutti i suoi orari?`)) return
+    if (!confirm(`Duplicare il laboratorio "${name}" con tutti i suoi orari?`)) return
     try {
       await adminDuplicateRoom(id)
       load()
@@ -145,7 +145,7 @@ export default function AdminRooms() {
     <>
       <nav className="nav">
         <Link to="/admin/dashboard" className="nav-back">← Dashboard</Link>
-        <span className="nav-title">Gestione Aule</span>
+        <span className="nav-title">Gestione Laboratori</span>
       </nav>
 
       <div className="page">
@@ -154,7 +154,7 @@ export default function AdminRooms() {
         {/* Add room form — superadmin only */}
         {is_superadmin && (
           <div className="card" style={{ marginBottom: '1.25rem' }}>
-            <h2 style={{ marginBottom: '1rem' }}>Aggiungi Aula</h2>
+            <h2 style={{ marginBottom: '1rem' }}>Aggiungi Laboratorio</h2>
             <form onSubmit={handleAdd}>
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: '200px' }}>
@@ -162,7 +162,7 @@ export default function AdminRooms() {
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Nome aula (es. Aula 101)"
+                    placeholder="Nome laboratorio (es. Lab 101)"
                     required
                   />
                 </div>
@@ -176,19 +176,19 @@ export default function AdminRooms() {
 
         {/* Rooms list */}
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Elenco Aule</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Elenco Laboratori</h2>
 
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
           ) : rooms.length === 0 ? (
-            <div className="empty-state">Nessuna aula configurata.</div>
+            <div className="empty-state">Nessun laboratorio configurato.</div>
           ) : (
             <div className="table-wrapper">
               <table>
                 <thead>
                   <tr>
                     <th style={{ width: '5rem' }}>Ordine</th>
-                    <th>Nome Aula</th>
+                    <th>Nome Laboratorio</th>
                     <th>Stato</th>
                     <th>Azioni</th>
                   </tr>
@@ -241,7 +241,7 @@ export default function AdminRooms() {
                           <button
                             className={`btn btn-sm ${room.active ? 'btn-secondary' : 'btn-success'}`}
                             onClick={() => handleToggleActive(room.id, room.active)}
-                            title={room.active ? "Disattiva l'aula" : "Attiva l'aula"}
+                            title={room.active ? "Disattiva il laboratorio" : "Attiva il laboratorio"}
                           >
                             {room.active ? '⏸ Disattiva' : '▶ Attiva'}
                           </button>
@@ -294,7 +294,7 @@ export default function AdminRooms() {
                                   type="text"
                                   value={settingsForm.emoji}
                                   onChange={(e) => setSettingsForm({ ...settingsForm, emoji: e.target.value })}
-                                  placeholder="Es. 🖥️ 📚 🔬"
+                                  placeholder="Es. 🔬 📚 🖥️"
                                   maxLength={20}
                                   style={{ width: '8rem' }}
                                 />
@@ -305,7 +305,7 @@ export default function AdminRooms() {
                                   rows={3}
                                   value={settingsForm.announcement}
                                   onChange={(e) => setSettingsForm({ ...settingsForm, announcement: e.target.value })}
-                                  placeholder="Es. Aula disponibile solo al mattino"
+                                  placeholder="Es. Laboratorio disponibile solo al mattino"
                                   style={{ resize: 'vertical' }}
                                 />
                               </div>

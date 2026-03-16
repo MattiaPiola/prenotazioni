@@ -86,7 +86,7 @@ export default function AdminNotifications() {
       return
     }
     if (form.scope === 'specific_rooms' && form.room_ids.length === 0) {
-      setError('Seleziona almeno un\'aula per il filtro per aula')
+      setError('Seleziona almeno un laboratorio per il filtro per laboratorio')
       return
     }
     setSaving(true)
@@ -191,7 +191,7 @@ export default function AdminNotifications() {
                 </div>
 
                 <div className="form-group">
-                  <label>Filtro aule</label>
+                  <label>Filtro laboratori</label>
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
                       <input
@@ -202,7 +202,7 @@ export default function AdminNotifications() {
                         onChange={() => setForm({ ...form, scope: 'all_rooms', room_ids: [] })}
                         style={{ width: 'auto' }}
                       />
-                      Tutte le aule
+                      Tutti i laboratori
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
                       <input
@@ -213,16 +213,16 @@ export default function AdminNotifications() {
                         onChange={() => setForm({ ...form, scope: 'specific_rooms' })}
                         style={{ width: 'auto' }}
                       />
-                      Aule specifiche
+                      Laboratori specifici
                     </label>
                   </div>
                 </div>
 
                 {form.scope === 'specific_rooms' && (
                   <div className="form-group">
-                    <label>Seleziona aule</label>
+                    <label>Seleziona laboratori</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
-                      {rooms.length === 0 && <span style={{ color: 'var(--gray-700)', fontSize: '0.875rem' }}>Nessuna aula disponibile</span>}
+                      {rooms.length === 0 && <span style={{ color: 'var(--gray-700)', fontSize: '0.875rem' }}>Nessun laboratorio disponibile</span>}
                       {rooms.map((room) => (
                         <label key={room.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                           <input
@@ -281,7 +281,7 @@ export default function AdminNotifications() {
                   <tr>
                     <th>Stato</th>
                     <th>Evento</th>
-                    <th>Filtro aule</th>
+                    <th>Filtro laboratori</th>
                     <th>Chat ID</th>
                     <th>Azioni</th>
                   </tr>
@@ -301,7 +301,7 @@ export default function AdminNotifications() {
                       <td>{EVENT_TYPE_LABELS[rule.event_type] || rule.event_type}</td>
                       <td>
                         {rule.scope === 'all_rooms'
-                          ? 'Tutte le aule'
+                          ? 'Tutti i laboratori'
                           : `Specifiche: ${getRoomNames(rule.room_ids)}`}
                       </td>
                       <td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>

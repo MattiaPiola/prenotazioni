@@ -78,8 +78,8 @@ export default function AdminSlots() {
   return (
     <>
       <nav className="nav">
-        <Link to="/admin/rooms" className="nav-back">← Aule</Link>
-        <span className="nav-title">Orari Aula</span>
+        <Link to="/admin/rooms" className="nav-back">← Laboratori</Link>
+        <span className="nav-title">Orari Laboratorio</span>
       </nav>
 
       <div className="page">
@@ -151,7 +151,7 @@ export default function AdminSlots() {
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
           ) : slots.length === 0 ? (
-            <div className="empty-state">Nessun orario configurato per questa aula.</div>
+            <div className="empty-state">Nessun orario configurato per questo laboratorio.</div>
           ) : (
             <div className="table-wrapper">
               <table>
