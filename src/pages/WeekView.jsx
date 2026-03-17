@@ -191,7 +191,7 @@ export default function WeekView() {
                                         {b.source === 'recurring' && '🔁 '}{b.teacher_name}
                                       </div>
                                       <div className="slot-booked-class">{b.class_name}</div>
-                                      {room?.allow_user_edit && (
+                                      {room?.allow_user_edit && b.source !== 'recurring' && (
                                         <button
                                           onClick={() => handleCancelBooking(b.id)}
                                           style={{

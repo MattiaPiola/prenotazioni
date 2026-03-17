@@ -38,13 +38,15 @@ export const handler = withErrorHandling(async function (event) {
     // Fetch booking to get room_id and details for notification
     const { data: booking, error: fetchErr } = await supabase
       .from('bookings')
-      .select('room_id, room_slot_id, date, teacher_name, class_name')
+      .select('room_id, room_slot_id, date, teacher_name, class_name, source')
       .eq('id', id)
       .single()
     if (fetchErr || !booking) return jsonResp(404, { error: 'Booking not found' })
     // Check room allows user edits
     const { data: room } = await supabase.from('rooms').select('allow_user_edit').eq('id', booking.room_id).single()
     if (!room || !room.allow_user_edit) return jsonResp(403, { error: 'La cancellazione non è consentita per questo laboratorio.' })
+    // Recurring bookings cannot be cancelled by users
+    if (booking.source === 'recurring') return jsonResp(403, { error: 'Le prenotazioni ricorrenti non possono essere cancellate.' })
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return jsonResp(500, { error: error.message })
     await emitEvent('booking_cancelled', {
