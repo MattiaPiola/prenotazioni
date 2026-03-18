@@ -51,13 +51,24 @@ export const handler = withErrorHandling(async function (event) {
     const { teacher_name, class_name } = body
     if (!teacher_name || !teacher_name.trim()) return json(400, { error: 'teacher_name is required' })
 
-    const { data: existing } = await supabase.from('bookings').select('room_id').eq('id', id).single()
+    const { data: existing } = await supabase.from('bookings').select('room_id, room_slot_id, date').eq('id', id).single()
     if (!existing) return json(404, { error: 'Booking not found' })
     if (!ctx.is_superadmin) {
       try { await requireRoomAccess(ctx, existing.room_id, supabase) } catch (err) {
         return json(err.status || 403, { error: err.message })
       }
     }
+
+    // Check if slot is locked
+    const { data: lockedSlotPatch } = await supabase
+      .from('blocked_slots')
+      .select('id')
+      .eq('room_id', existing.room_id)
+      .eq('room_slot_id', existing.room_slot_id)
+      .eq('date', existing.date)
+      .eq('type', 'locked')
+      .maybeSingle()
+    if (lockedSlotPatch) return json(423, { error: 'Questo slot è bloccato. Sblocca prima di modificare la prenotazione.' })
 
     const { data, error } = await supabase
       .from('bookings')
@@ -90,12 +101,17 @@ export const handler = withErrorHandling(async function (event) {
     // Check if slot is blocked
     const { data: blocked } = await supabase
       .from('blocked_slots')
-      .select('id')
+      .select('id, type')
       .eq('room_id', room_id)
       .eq('room_slot_id', room_slot_id)
       .eq('date', date)
       .maybeSingle()
-    if (blocked) return json(409, { error: 'Questo slot è bloccato per la data selezionata.' })
+    if (blocked) {
+      const msg = blocked.type === 'locked'
+        ? 'Questo slot è bloccato. Sblocca prima di procedere.'
+        : 'Questo slot è disabilitato per la data selezionata.'
+      return json(409, { error: msg })
+    }
 
     // Check max_bookings
     const { data: slot } = await supabase.from('room_slots').select('max_bookings').eq('id', room_slot_id).single()
@@ -150,6 +166,16 @@ export const handler = withErrorHandling(async function (event) {
         return json(err.status || 403, { error: err.message })
       }
     }
+    // Check if slot is locked
+    const { data: lockedSlotDel } = await supabase
+      .from('blocked_slots')
+      .select('id')
+      .eq('room_id', bookingToCancel.room_id)
+      .eq('room_slot_id', bookingToCancel.room_slot_id)
+      .eq('date', bookingToCancel.date)
+      .eq('type', 'locked')
+      .maybeSingle()
+    if (lockedSlotDel) return json(423, { error: 'Questo slot è bloccato. Sblocca prima di cancellare la prenotazione.' })
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return json(500, { error: error.message })
     if (bookingToCancel) {

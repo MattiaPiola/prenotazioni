@@ -127,14 +127,45 @@ export default function AdminCalendar() {
     }
   }
 
-  const handleToggleBlock = async (slotId, date) => {
-    const existingBlock = getBlock(slotId, date)
+  const handleDisableSlot = async (slotId, date) => {
     try {
-      if (existingBlock) {
-        await adminUnblockSlot(existingBlock.id)
-      } else {
-        await adminBlockSlot({ room_id: selectedRoom, room_slot_id: slotId, date })
-      }
+      await adminBlockSlot({ room_id: selectedRoom, room_slot_id: slotId, date, type: 'disabled' })
+      reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleLockSlot = async (slotId, date) => {
+    try {
+      await adminBlockSlot({ room_id: selectedRoom, room_slot_id: slotId, date, type: 'locked' })
+      reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleUnblockSlot = async (slotId, date) => {
+    const existingBlock = getBlock(slotId, date)
+    if (!existingBlock) return
+    try {
+      await adminUnblockSlot(existingBlock.id)
+      reload()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const handleDisableDay = async (dayIdx) => {
+    const dateStr = formatDate(weekDates[dayIdx])
+    const unblockedSlots = slots.filter((slot) => !getBlock(slot.id, dateStr))
+    if (unblockedSlots.length === 0) return
+    try {
+      await adminBlockSlot({
+        room_id: selectedRoom,
+        type: 'disabled',
+        slots: unblockedSlots.map((slot) => ({ room_slot_id: slot.id, date: dateStr })),
+      })
       reload()
     } catch (err) {
       setError(err.message)
@@ -143,12 +174,13 @@ export default function AdminCalendar() {
 
   const handleLockDay = async (dayIdx) => {
     const dateStr = formatDate(weekDates[dayIdx])
-    const unlockedSlots = slots.filter((slot) => !getBlock(slot.id, dateStr))
-    if (unlockedSlots.length === 0) return
+    const unblockedSlots = slots.filter((slot) => !getBlock(slot.id, dateStr))
+    if (unblockedSlots.length === 0) return
     try {
       await adminBlockSlot({
         room_id: selectedRoom,
-        slots: unlockedSlots.map((slot) => ({ room_slot_id: slot.id, date: dateStr })),
+        type: 'locked',
+        slots: unblockedSlots.map((slot) => ({ room_slot_id: slot.id, date: dateStr })),
       })
       reload()
     } catch (err) {
@@ -472,7 +504,7 @@ export default function AdminCalendar() {
         <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '1rem' }}>
           {massEditMode
             ? '☑️ Modalità selezione multipla attiva. Clicca sugli slot disponibili per selezionarli, poi usa il pannello in basso per creare le prenotazioni.'
-            : '💡 Clicca 🔒 per bloccare/sbloccare uno slot. Usa 🔒/🔓 nell\'intestazione per bloccare/sbloccare l\'intera giornata. Usa ✚ per aggiungere una prenotazione e ✏️ per modificarla.'}
+            : '💡 Clicca 🚫 per disabilitare uno slot (non disponibile, nessuna prenotazione) o 🔒 per bloccarlo (prenotazioni esistenti protette, nessuna modifica). Usa 🔓 per sbloccare. Usa ✚ per aggiungere una prenotazione e ✏️ per modificarla.'}
         </p>
 
         {loading ? (
@@ -491,7 +523,17 @@ export default function AdminCalendar() {
                 {visibleDayIndices.map((i) => {
                   const dateStr = formatDate(weekDates[i])
                   const dayBlocked = blocked.filter((b) => b.date === dateStr)
-                  const allLocked = slots.length > 0 && dayBlocked.length >= slots.length
+                  const allBlocked = slots.length > 0 && dayBlocked.length >= slots.length
+                  const btnStyle = {
+                    marginTop: '2px',
+                    background: 'none',
+                    border: '1px solid currentColor',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.62rem',
+                    padding: '1px 4px',
+                    opacity: 0.8,
+                  }
                   return (
                     <div key={i} className="week-grid-header-cell">
                       <div>{DAY_NAMES[i].slice(0, 3)}</div>
@@ -499,22 +541,32 @@ export default function AdminCalendar() {
                         {weekDates[i].getDate()}/{weekDates[i].getMonth() + 1}
                       </div>
                       {slots.length > 0 && (
-                        <button
-                          title={allLocked ? 'Sblocca giornata' : 'Blocca giornata'}
-                          onClick={() => allLocked ? handleUnlockDay(i) : handleLockDay(i)}
-                          style={{
-                            marginTop: '4px',
-                            background: 'none',
-                            border: '1px solid currentColor',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '0.65rem',
-                            padding: '1px 5px',
-                            opacity: 0.8,
-                          }}
-                        >
-                          {allLocked ? '🔓' : '🔒'}
-                        </button>
+                        allBlocked ? (
+                          <button
+                            title="Sblocca giornata"
+                            onClick={() => handleUnlockDay(i)}
+                            style={{ ...btnStyle, marginTop: '4px' }}
+                          >
+                            🔓
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '2px', marginTop: '4px', justifyContent: 'center' }}>
+                            <button
+                              title="Disabilita giornata"
+                              onClick={() => handleDisableDay(i)}
+                              style={btnStyle}
+                            >
+                              🚫
+                            </button>
+                            <button
+                              title="Blocca giornata (proteggi prenotazioni)"
+                              onClick={() => handleLockDay(i)}
+                              style={btnStyle}
+                            >
+                              🔒
+                            </button>
+                          </div>
+                        )
                       )}
                     </div>
                   )
@@ -548,6 +600,8 @@ export default function AdminCalendar() {
                     const dateStr = formatDate(weekDates[dayIdx])
                     const slotBookings = getBookingsForSlot(slot.id, dateStr)
                     const block = getBlock(slot.id, dateStr)
+                    const isDisabled = block?.type === 'disabled'
+                    const isLocked = block?.type === 'locked'
                     const isBlocked = !!block
                     const maxBookings = slot.max_bookings || 1
                     const isFull = !isBlocked && slotBookings.length >= maxBookings
@@ -557,7 +611,8 @@ export default function AdminCalendar() {
                       <div
                         key={dayIdx}
                         className={`slot-cell ${
-                          isBlocked ? 'slot-weekend' :
+                          isDisabled ? 'slot-weekend' :
+                          isLocked ? (allRecurring ? 'slot-recurring' : slotBookings.length > 0 ? 'slot-booked' : 'slot-available') :
                           massEditMode && isSlotSelected(slot.id, dateStr) ? 'slot-selected' :
                           allRecurring ? 'slot-recurring' :
                           slotBookings.length > 0 ? (isFull ? 'slot-booked' : 'slot-partial') :
@@ -570,7 +625,9 @@ export default function AdminCalendar() {
                         onClick={massEditMode && !isBlocked && !isFull ? () => handleToggleMassSelect(slot.id, dateStr) : undefined}
                       >
                         {massEditMode ? (
-                          isBlocked ? (
+                          isDisabled ? (
+                            <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--gray-700)' }}>🚫</div>
+                          ) : isLocked ? (
                             <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--gray-700)' }}>🔒</div>
                           ) : isSlotSelected(slot.id, dateStr) ? (
                             <div style={{ textAlign: 'center' }}>
@@ -591,18 +648,53 @@ export default function AdminCalendar() {
                               Clicca per selezionare
                             </div>
                           )
-                        ) : isBlocked ? (
+                        ) : isDisabled ? (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '0.75rem', color: 'var(--gray-700)', marginBottom: '0.3rem' }}>
-                              🔒 Bloccato
+                              🚫 Non disponibile
                             </div>
                             <button
                               className="btn btn-secondary btn-sm"
                               style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                              onClick={() => handleToggleBlock(slot.id, dateStr)}
+                              onClick={() => handleUnblockSlot(slot.id, dateStr)}
                             >
-                              Sblocca
+                              Abilita
                             </button>
+                          </div>
+                        ) : isLocked ? (
+                          <div>
+                            {slotBookings.map((b) => (
+                              <div
+                                key={b.id}
+                                style={{
+                                  background: b.source === 'recurring' ? 'var(--recurring-light)' : 'var(--primary-light)',
+                                  borderRadius: '4px',
+                                  padding: '2px 5px',
+                                  marginBottom: '3px',
+                                  fontSize: '0.72rem',
+                                }}
+                              >
+                                <div style={{ fontWeight: 600, color: b.source === 'recurring' ? 'var(--recurring)' : undefined }}>
+                                  {b.source === 'recurring' && '🔁 '}{b.teacher_name}
+                                </div>
+                                <div style={{ opacity: 0.8 }}>{b.class_name}</div>
+                              </div>
+                            ))}
+                            {maxBookings > 1 && (
+                              <div style={{ fontSize: '0.65rem', color: 'var(--gray-700)', marginBottom: '2px' }}>
+                                {slotBookings.length}/{maxBookings}
+                              </div>
+                            )}
+                            <div style={{ marginTop: '4px' }}>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--gray-700)', marginBottom: '3px' }}>🔒 Bloccato</div>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                onClick={() => handleUnblockSlot(slot.id, dateStr)}
+                              >
+                                🔓 Sblocca
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div>
@@ -674,7 +766,14 @@ export default function AdminCalendar() {
                               <button
                                 className="btn btn-secondary btn-sm"
                                 style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                                onClick={() => handleToggleBlock(slot.id, dateStr)}
+                                onClick={() => handleDisableSlot(slot.id, dateStr)}
+                              >
+                                🚫 Disabilita
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                onClick={() => handleLockSlot(slot.id, dateStr)}
                               >
                                 🔒 Blocca
                               </button>

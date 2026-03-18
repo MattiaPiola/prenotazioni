@@ -47,6 +47,16 @@ export const handler = withErrorHandling(async function (event) {
     if (!room || !room.allow_user_edit) return jsonResp(403, { error: 'La cancellazione non è consentita per questo laboratorio.' })
     // Recurring bookings cannot be cancelled by users
     if (booking.source === 'recurring') return jsonResp(403, { error: 'Le prenotazioni ricorrenti non possono essere cancellate.' })
+    // Check if slot is locked
+    const { data: lockedSlot } = await supabase
+      .from('blocked_slots')
+      .select('id')
+      .eq('room_id', booking.room_id)
+      .eq('room_slot_id', booking.room_slot_id)
+      .eq('date', booking.date)
+      .eq('type', 'locked')
+      .maybeSingle()
+    if (lockedSlot) return jsonResp(423, { error: 'Questo slot è bloccato. Impossibile cancellare la prenotazione.' })
     const { error } = await supabase.from('bookings').delete().eq('id', id)
     if (error) return jsonResp(500, { error: error.message })
     await emitEvent('booking_cancelled', {
@@ -93,12 +103,17 @@ export const handler = withErrorHandling(async function (event) {
   // Check if slot is blocked
   const { data: blocked } = await supabase
     .from('blocked_slots')
-    .select('id')
+    .select('id, type')
     .eq('room_id', room_id)
     .eq('room_slot_id', room_slot_id)
     .eq('date', date)
     .maybeSingle()
-  if (blocked) return jsonResp(409, { error: 'Questo slot è bloccato per la data selezionata.' })
+  if (blocked) {
+    const msg = blocked.type === 'locked'
+      ? 'Questo slot è bloccato. Impossibile effettuare prenotazioni.'
+      : 'Questo slot non è disponibile per la data selezionata.'
+    return jsonResp(409, { error: msg })
+  }
 
   // Check max_bookings for the slot
   const { data: slot } = await supabase.from('room_slots').select('max_bookings').eq('id', room_slot_id).single()
