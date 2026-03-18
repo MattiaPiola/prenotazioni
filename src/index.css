@@ -508,6 +508,16 @@ textarea {
   background: var(--gray-100);
 }
 
+.slot-selected {
+  background: var(--primary-light);
+  border: 2px solid var(--primary);
+  cursor: pointer;
+}
+
+.slot-selected:hover {
+  filter: brightness(0.95);
+}
+
 .slot-recurring {
   background: var(--recurring-light);
 }
