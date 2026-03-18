@@ -50,6 +50,16 @@ export default function AdminCalendar() {
   const [bookingModalError, setBookingModalError] = useState(null)
   const [bookingModalConflicts, setBookingModalConflicts] = useState(null)
 
+  // Mass edit mode state
+  const [massEditMode, setMassEditMode] = useState(false)
+  const [selectedSlots, setSelectedSlots] = useState([])
+  const [massModal, setMassModal] = useState(false)
+  const [massForm, setMassForm] = useState({ teacher_name: '', class_name: '', booking_type: 'single', start_date: '', end_date: '', weekdays: [] })
+  const [massLoading, setMassLoading] = useState(false)
+  const [massError, setMassError] = useState(null)
+  const [massConflicts, setMassConflicts] = useState(null)
+  const [massConflictingSlots, setMassConflictingSlots] = useState(null)
+
   const weekDates = getWeekDates(weekOffset)
   const dateFrom = formatDate(weekDates[0])
   const dateTo = formatDate(weekDates[6])
@@ -178,6 +188,103 @@ export default function AdminCalendar() {
     setBookingModal(null)
     setBookingModalError(null)
     setBookingModalConflicts(null)
+  }
+
+  // Mass edit helpers
+  const isSlotSelected = (slotId, date) =>
+    selectedSlots.some((s) => s.slotId === slotId && s.date === date)
+
+  const handleToggleMassSelect = (slotId, date) => {
+    const slotData = slots.find((s) => s.id === slotId)
+    setSelectedSlots((prev) => {
+      const exists = prev.some((s) => s.slotId === slotId && s.date === date)
+      if (exists) return prev.filter((s) => !(s.slotId === slotId && s.date === date))
+      return [...prev, { slotId, date, slot: slotData }]
+    })
+  }
+
+  const handleEnterMassEdit = () => {
+    setMassEditMode(true)
+    setSelectedSlots([])
+  }
+
+  const handleExitMassEdit = () => {
+    setMassEditMode(false)
+    setSelectedSlots([])
+    setMassModal(false)
+    setMassError(null)
+    setMassConflicts(null)
+    setMassConflictingSlots(null)
+  }
+
+  const handleOpenMassModal = () => {
+    setMassForm({ teacher_name: '', class_name: '', booking_type: 'single', start_date: '', end_date: '', weekdays: [] })
+    setMassError(null)
+    setMassConflicts(null)
+    setMassConflictingSlots(null)
+    setMassModal(true)
+  }
+
+  const handleCloseMassModal = () => {
+    setMassModal(false)
+    setMassError(null)
+    setMassConflicts(null)
+    setMassConflictingSlots(null)
+  }
+
+  const handleMassSubmit = async (action) => {
+    setMassLoading(true)
+    setMassError(null)
+    try {
+      const targetSlots = massConflictingSlots ?? selectedSlots
+      if (massForm.booking_type === 'single') {
+        await Promise.all(targetSlots.map((s) =>
+          adminCreateBooking({
+            room_id: selectedRoom,
+            room_slot_id: s.slotId,
+            date: s.date,
+            teacher_name: massForm.teacher_name,
+            class_name: massForm.class_name || null,
+          })
+        ))
+        handleCloseMassModal()
+        setSelectedSlots([])
+        setMassEditMode(false)
+        reload()
+      } else {
+        const newConflicts = []
+        const newConflictingSlots = []
+        for (const s of targetSlots) {
+          const res = await adminCreateRecurringBooking({
+            room_id: selectedRoom,
+            room_slot_id: s.slotId,
+            teacher_name: massForm.teacher_name,
+            class_name: massForm.class_name || null,
+            start_date: massForm.start_date,
+            end_date: massForm.end_date,
+            weekdays: massForm.weekdays,
+            action,
+          })
+          if (res.hasConflicts) {
+            newConflicts.push(...res.conflicts)
+            newConflictingSlots.push(s)
+          }
+        }
+        if (newConflicts.length > 0) {
+          setMassConflicts(newConflicts)
+          setMassConflictingSlots(newConflictingSlots)
+        } else {
+          handleCloseMassModal()
+          setSelectedSlots([])
+          setMassEditMode(false)
+          reload()
+        }
+      }
+    } catch (err) {
+      setMassError(err.message)
+    } finally {
+      setMassLoading(false)
+    }
   }
 
   const handleBookingModalSubmit = async (action) => {
@@ -332,6 +439,17 @@ export default function AdminCalendar() {
               ))}
             </select>
           </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            {massEditMode ? (
+              <button className="btn btn-secondary btn-sm" onClick={handleExitMassEdit}>
+                ✕ Esci selezione multipla
+              </button>
+            ) : (
+              <button className="btn btn-secondary btn-sm" onClick={handleEnterMassEdit}>
+                ☑ Selezione multipla
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Week navigation */}
@@ -352,7 +470,9 @@ export default function AdminCalendar() {
         </div>
 
         <p style={{ fontSize: '0.82rem', color: 'var(--gray-700)', marginBottom: '1rem' }}>
-          💡 Clicca 🔒 per bloccare/sbloccare uno slot. Usa 🔒/🔓 nell'intestazione per bloccare/sbloccare l'intera giornata. Usa ✚ per aggiungere una prenotazione e ✏️ per modificarla.
+          {massEditMode
+            ? '☑️ Modalità selezione multipla attiva. Clicca sugli slot disponibili per selezionarli, poi usa il pannello in basso per creare le prenotazioni.'
+            : '💡 Clicca 🔒 per bloccare/sbloccare uno slot. Usa 🔒/🔓 nell\'intestazione per bloccare/sbloccare l\'intera giornata. Usa ✚ per aggiungere una prenotazione e ✏️ per modificarla.'}
         </p>
 
         {loading ? (
@@ -436,10 +556,42 @@ export default function AdminCalendar() {
                     return (
                       <div
                         key={dayIdx}
-                        className={`slot-cell ${isBlocked ? 'slot-weekend' : allRecurring ? 'slot-recurring' : slotBookings.length > 0 ? (isFull ? 'slot-booked' : 'slot-partial') : 'slot-available'}`}
-                        style={{ padding: '0.4rem', verticalAlign: 'top', minHeight: '3.5rem' }}
+                        className={`slot-cell ${
+                          isBlocked ? 'slot-weekend' :
+                          massEditMode && isSlotSelected(slot.id, dateStr) ? 'slot-selected' :
+                          allRecurring ? 'slot-recurring' :
+                          slotBookings.length > 0 ? (isFull ? 'slot-booked' : 'slot-partial') :
+                          'slot-available'
+                        }`}
+                        style={{
+                          padding: '0.4rem', verticalAlign: 'top', minHeight: '3.5rem',
+                          ...(massEditMode && !isBlocked && !isFull ? { cursor: 'pointer' } : {}),
+                        }}
+                        onClick={massEditMode && !isBlocked && !isFull ? () => handleToggleMassSelect(slot.id, dateStr) : undefined}
                       >
-                        {isBlocked ? (
+                        {massEditMode ? (
+                          isBlocked ? (
+                            <div style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--gray-700)' }}>🔒</div>
+                          ) : isSlotSelected(slot.id, dateStr) ? (
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>✓</div>
+                              <div style={{ fontSize: '0.65rem', color: 'var(--primary-dark)', marginTop: '2px' }}>Selezionato</div>
+                            </div>
+                          ) : isFull ? (
+                            <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--gray-700)', opacity: 0.7 }}>
+                              {slotBookings.map((b) => b.teacher_name).join(', ')}
+                            </div>
+                          ) : slotBookings.length > 0 ? (
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--gray-700)' }}>{slotBookings.map((b) => b.teacher_name).join(', ')}</div>
+                              <div style={{ fontSize: '0.62rem', color: 'var(--gray-500)', marginTop: '2px' }}>+ clicca per aggiungere</div>
+                            </div>
+                          ) : (
+                            <div style={{ textAlign: 'center', fontSize: '0.65rem', color: 'var(--gray-500)', padding: '4px' }}>
+                              Clicca per selezionare
+                            </div>
+                          )
+                        ) : isBlocked ? (
                           <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '0.75rem', color: 'var(--gray-700)', marginBottom: '0.3rem' }}>
                               🔒 Bloccato
@@ -802,6 +954,194 @@ export default function AdminCalendar() {
           </div>
         </div>
       )}
+
+      {/* Mass edit floating action bar */}
+      {massEditMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: selectedSlots.length > 0 ? 'var(--primary)' : 'var(--gray-700)',
+          color: 'white',
+          padding: '0.6rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 150,
+          boxShadow: '0 -2px 8px rgba(0,0,0,0.2)',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+            {selectedSlots.length === 0
+              ? '☑️ Modalità selezione multipla — clicca sugli slot disponibili'
+              : `☑️ ${selectedSlots.length} slot selezionati`}
+          </span>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {selectedSlots.length > 0 && (
+              <>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedSlots([])}
+                  style={{ fontSize: '0.8rem' }}
+                >
+                  Deseleziona tutto
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={handleOpenMassModal}
+                  style={{ background: 'white', color: 'var(--primary)', fontWeight: 600, fontSize: '0.8rem' }}
+                >
+                  ✚ Crea prenotazione
+                </button>
+              </>
+            )}
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleExitMassEdit}
+              style={{ fontSize: '0.8rem' }}
+            >
+              ✕ Esci
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mass booking modal */}
+      {massModal && (
+        <div className="modal-overlay" onClick={handleCloseMassModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ color: 'var(--primary)' }}>✚ Nuova prenotazione multipla ({selectedSlots.length} slot)</h3>
+              <button className="modal-close" onClick={handleCloseMassModal}>✕</button>
+            </div>
+
+            {/* Selected slots summary */}
+            <div style={{ marginBottom: '0.75rem', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', padding: '0.6rem', maxHeight: '9rem', overflowY: 'auto' }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.35rem' }}>Slot selezionati:</p>
+              {selectedSlots.map((s) => (
+                <div key={`${s.slotId}__${s.date}`} style={{ fontSize: '0.75rem', color: 'var(--gray-700)', marginBottom: '2px' }}>
+                  📅 {s.date} — ⏰ {s.slot?.start_time}–{s.slot?.end_time}{s.slot?.label ? ` (${s.slot.label})` : ''}
+                </div>
+              ))}
+            </div>
+
+            {massError && <div className="error-msg" style={{ marginBottom: '0.75rem' }}>⚠️ {massError}</div>}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleMassSubmit() }}>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label>Docente *</label>
+                <input
+                  type="text"
+                  value={massForm.teacher_name}
+                  onChange={(e) => setMassForm((f) => ({ ...f, teacher_name: e.target.value }))}
+                  placeholder="Es. Prof. Rossi"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label>Classe</label>
+                <input
+                  type="text"
+                  value={massForm.class_name}
+                  onChange={(e) => setMassForm((f) => ({ ...f, class_name: e.target.value }))}
+                  placeholder="Es. 3A"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                <label>Tipo</label>
+                <select
+                  value={massForm.booking_type}
+                  onChange={(e) => setMassForm((f) => ({ ...f, booking_type: e.target.value }))}
+                >
+                  <option value="single">Singola (per ogni data selezionata)</option>
+                  <option value="recurring">Ricorrente</option>
+                </select>
+              </div>
+
+              {massForm.booking_type === 'recurring' && (
+                <>
+                  <div className="form-row" style={{ marginBottom: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Data inizio *</label>
+                      <input
+                        type="date"
+                        value={massForm.start_date}
+                        onChange={(e) => setMassForm((f) => ({ ...f, start_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Data fine *</label>
+                      <input
+                        type="date"
+                        value={massForm.end_date}
+                        min={massForm.start_date}
+                        onChange={(e) => setMassForm((f) => ({ ...f, end_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                    <label>Giorni della settimana *</label>
+                    <div className="checkbox-group">
+                      {DAY_NAMES.map((name, i) => {
+                        const val = i + 1
+                        return (
+                          <label key={val} className="checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={massForm.weekdays.includes(val)}
+                              onChange={() => setMassForm((f) => ({
+                                ...f,
+                                weekdays: f.weekdays.includes(val)
+                                  ? f.weekdays.filter((d) => d !== val)
+                                  : [...f.weekdays, val],
+                              }))}
+                            />
+                            {name}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {massConflicts && (
+                    <div style={{ marginBottom: '0.75rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+                      <p style={{ fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.9rem' }}>⚠️ Le seguenti date hanno lo slot esaurito:</p>
+                      <ul style={{ margin: '0 0 0.6rem 1.1rem', fontSize: '0.82rem', color: 'var(--gray-900)' }}>
+                        {massConflicts.map((c, idx) => (
+                          <li key={idx}><strong>{c.date}</strong>: {c.existing?.map((b) => `${b.teacher_name}${b.class_name ? ' – ' + b.class_name : ''}`).join(', ')}</li>
+                        ))}
+                      </ul>
+                      <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--gray-700)' }}>Come procedere per le date in conflitto?</p>
+                      <div className="request-card-actions">
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => handleMassSubmit('force')} disabled={massLoading}>🔄 Sovrascrivi</button>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleMassSubmit('skip')} disabled={massLoading}>⏭️ Salta conflitti</button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMassConflicts(null)} disabled={massLoading}>Annulla</button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!massConflicts && (
+                <div className="request-card-actions">
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={massLoading}>
+                    {massLoading ? '...' : `✚ Crea ${selectedSlots.length} prenotazion${selectedSlots.length === 1 ? 'e' : 'i'}`}
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleCloseMassModal} disabled={massLoading}>
+                    Annulla
+                  </button>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </>
   )
 }
+
