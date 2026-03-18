@@ -44,8 +44,8 @@ export default function WeekView() {
   const getBookingsForSlot = (slotId, date) =>
     bookings.filter((b) => b.room_slot_id === slotId && b.date === date)
 
-  const isBlocked = (slotId, date) =>
-    blockedSlots.some((b) => b.room_slot_id === slotId && b.date === date)
+  const getBlockedSlot = (slotId, date) =>
+    blockedSlots.find((b) => b.room_slot_id === slotId && b.date === date)
 
   const handleWeekChange = (offset) => {
     if (offset < 0 || offset > 1) return
@@ -166,14 +166,16 @@ export default function WeekView() {
                         {visibleDayIndices.map((dayIdx) => {
                           const dateStr = formatDate(weekDates[dayIdx])
                           const slotBookings = getBookingsForSlot(slot.id, dateStr)
-                          const blocked = isBlocked(slot.id, dateStr)
+                          const blockedSlot = getBlockedSlot(slot.id, dateStr)
+                          const isDisabledSlot = blockedSlot?.type === 'disabled'
+                          const isLockedSlot = blockedSlot?.type === 'locked'
                           const isFull = slotBookings.length >= maxBookings
                           const allRecurring = slotBookings.length > 0 && slotBookings.every((b) => b.source === 'recurring')
 
-                          if (blocked) {
+                          if (isDisabledSlot) {
                             return (
                               <div key={dayIdx} className="slot-cell slot-weekend">
-                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-700)' }}>🔒 Non disponibile</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-700)' }}>🚫 Non disponibile</div>
                               </div>
                             )
                           }
@@ -181,7 +183,7 @@ export default function WeekView() {
                           return (
                             <div
                               key={dayIdx}
-                              className={`slot-cell ${allRecurring ? 'slot-recurring' : isFull ? 'slot-booked' : slotBookings.length > 0 ? 'slot-partial' : 'slot-available'}`}
+                              className={`slot-cell ${allRecurring ? 'slot-recurring' : isFull || isLockedSlot ? 'slot-booked' : slotBookings.length > 0 ? 'slot-partial' : 'slot-available'}`}
                             >
                               {slotBookings.length > 0 && (
                                 <div className="slot-booked-info">
@@ -191,7 +193,7 @@ export default function WeekView() {
                                         {b.source === 'recurring' && '🔁 '}{b.teacher_name}
                                       </div>
                                       <div className="slot-booked-class">{b.class_name}</div>
-                                      {room?.allow_user_edit && b.source !== 'recurring' && (
+                                      {room?.allow_user_edit && b.source !== 'recurring' && !isLockedSlot && (
                                         <button
                                           onClick={() => handleCancelBooking(b.id)}
                                           style={{
@@ -211,17 +213,21 @@ export default function WeekView() {
                                   )}
                                 </div>
                               )}
-                              {!isFull && (
-                                <button
-                                  className="btn btn-primary btn-sm"
-                                  onClick={() =>
-                                    navigate(
-                                      `/room/${roomId}/book?date=${dateStr}&slotId=${slot.id}`
-                                    )
-                                  }
-                                >
-                                  Prenota
-                                </button>
+                              {isLockedSlot ? (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--gray-700)', marginTop: slotBookings.length > 0 ? '4px' : 0 }}>🔒 Bloccato</div>
+                              ) : (
+                                !isFull && (
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() =>
+                                      navigate(
+                                        `/room/${roomId}/book?date=${dateStr}&slotId=${slot.id}`
+                                      )
+                                    }
+                                  >
+                                    Prenota
+                                  </button>
+                                )
                               )}
                             </div>
                           )
@@ -253,6 +259,8 @@ export default function WeekView() {
                 <span style={{ width: '12px', height: '12px', background: 'var(--recurring-light)', borderRadius: '2px', display: 'inline-block', border: '1px solid var(--gray-300)' }} />
                 🔁 Prenotazione ricorrente
               </span>
+              <span>🔒 Bloccato (modifiche non consentite)</span>
+              <span>🚫 Non disponibile</span>
             </div>
           </>
         )}

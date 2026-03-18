@@ -75,7 +75,7 @@ export const handler = withErrorHandling(async function (event) {
     let body
     try { body = JSON.parse(event.body || '{}') } catch (_) { return json(400, { error: 'Invalid JSON' }) }
 
-    // Bulk insert: { room_id, slots: [{ room_slot_id, date, reason? }, ...] }
+    // Bulk insert: { room_id, type?, slots: [{ room_slot_id, date, reason?, type? }, ...] }
     if (Array.isArray(body.slots)) {
       const { room_id, slots } = body
       if (!room_id || !slots.length) return json(400, { error: 'room_id and slots are required' })
@@ -84,9 +84,11 @@ export const handler = withErrorHandling(async function (event) {
       } catch (err) {
         return json(err.status || 403, { error: err.message })
       }
-      const records = slots.map(({ room_slot_id, date, reason }) => {
+      const defaultBlockType = body.type === 'locked' ? 'locked' : 'disabled'
+      const records = slots.map(({ room_slot_id, date, reason, type }) => {
         if (!room_slot_id || !date) return null
-        return { room_id, room_slot_id, date, reason: reason || null }
+        const blockType = type === 'locked' || type === 'disabled' ? type : defaultBlockType
+        return { room_id, room_slot_id, date, reason: reason || null, type: blockType }
       })
       if (records.some((r) => r === null)) return json(400, { error: 'Each slot requires room_slot_id and date' })
       const { data, error } = await supabase
@@ -101,16 +103,17 @@ export const handler = withErrorHandling(async function (event) {
     }
 
     // Single insert
-    const { room_id, room_slot_id, date, reason } = body
+    const { room_id, room_slot_id, date, reason, type } = body
     if (!room_id || !room_slot_id || !date) return json(400, { error: 'room_id, room_slot_id and date are required' })
     try {
       await requireRoomAccess(ctx, room_id, supabase)
     } catch (err) {
       return json(err.status || 403, { error: err.message })
     }
+    const blockType = type === 'locked' ? 'locked' : 'disabled'
     const { data, error } = await supabase
       .from('blocked_slots')
-      .insert({ room_id, room_slot_id, date, reason: reason || null })
+      .insert({ room_id, room_slot_id, date, reason: reason || null, type: blockType })
       .select()
       .single()
     if (error) {
