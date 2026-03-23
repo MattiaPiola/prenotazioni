@@ -57,7 +57,10 @@ export const handler = withErrorHandling(async function (event) {
       .eq('type', 'locked')
       .maybeSingle()
     if (lockedSlot) return jsonResp(423, { error: 'Questo slot è bloccato. Impossibile cancellare la prenotazione.' })
-    const { error } = await supabase.from('bookings').delete().eq('id', id)
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('id', id)
     if (error) return jsonResp(500, { error: error.message })
     await emitEvent('booking_cancelled', {
       room_id: booking.room_id,
@@ -124,6 +127,7 @@ export const handler = withErrorHandling(async function (event) {
     .eq('room_id', room_id)
     .eq('room_slot_id', room_slot_id)
     .eq('date', date)
+    .eq('status', 'active')
   if ((count || 0) >= maxBookings) {
     return jsonResp(409, { error: 'Questo slot è esaurito per la data selezionata.' })
   }

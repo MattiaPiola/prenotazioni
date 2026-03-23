@@ -14,6 +14,7 @@ export default function AdminBookings() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [showArchive, setShowArchive] = useState(false)
   const [filters, setFilters] = useState({
     from: formatDate(weekDates[0]),
     to: formatDate(weekDates[6]),
@@ -27,13 +28,13 @@ export default function AdminBookings() {
   const load = () => {
     setLoading(true)
     setError(null)
-    adminGetBookings(filters)
+    adminGetBookings({ ...filters, status: showArchive ? 'cancelled' : 'active' })
       .then(setBookings)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [showArchive])
 
   const handleCancel = async (id) => {
     if (!confirm('Annullare questa prenotazione?')) return
@@ -47,7 +48,7 @@ export default function AdminBookings() {
 
   const handleExport = async () => {
     try {
-      const blob = await adminExportBookingsCSV(filters)
+      const blob = await adminExportBookingsCSV({ ...filters, status: showArchive ? 'cancelled' : 'active' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -68,6 +69,22 @@ export default function AdminBookings() {
 
       <div className="page-wide">
         {error && <div className="error-msg">⚠️ {error}</div>}
+
+        {/* Archive toggle */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button
+            className={`btn ${!showArchive ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowArchive(false)}
+          >
+            📋 Attive
+          </button>
+          <button
+            className={`btn ${showArchive ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowArchive(true)}
+          >
+            🗄️ Archivio cancellate
+          </button>
+        </div>
 
         {/* Filters */}
         <div className="filter-bar">
@@ -122,7 +139,7 @@ export default function AdminBookings() {
                   <th>Docente</th>
                   <th>Classe</th>
                   <th>Tipo</th>
-                  <th>Azione</th>
+                  {showArchive ? <th>Cancellata il</th> : <th>Azione</th>}
                 </tr>
               </thead>
               <tbody>
@@ -142,14 +159,20 @@ export default function AdminBookings() {
                         {b.source === 'recurring' ? '🔁 Ricorrente' : '📌 Singola'}
                       </span>
                     </td>
-                    <td>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleCancel(b.id)}
-                      >
-                        🗑️ Annulla
-                      </button>
-                    </td>
+                    {showArchive ? (
+                      <td style={{ fontSize: '0.82rem', color: 'var(--gray-700)' }}>
+                        {b.cancelled_at ? new Date(b.cancelled_at).toLocaleString('it-IT') : '—'}
+                      </td>
+                    ) : (
+                      <td>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleCancel(b.id)}
+                        >
+                          🗑️ Annulla
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
