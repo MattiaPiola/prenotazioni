@@ -99,11 +99,12 @@ export const adminApproveRecurring = async (id, action) => {
 export const adminDenyRecurring = (id, notes) =>
   apiFetch(`/api/admin/recurring-requests/${id}/deny`, { method: 'POST', body: JSON.stringify({ notes }) })
 
-export const adminGetBookings = ({ from, to, room_id } = {}) => {
+export const adminGetBookings = ({ from, to, room_id, status } = {}) => {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   if (room_id) params.set('room_id', room_id)
+  if (status) params.set('status', status)
   return apiFetch(`/api/admin/bookings?${params}`)
 }
 
@@ -187,11 +188,12 @@ export const adminUpdateRecurringDates = async (id, { start_date, end_date, acti
   return res.json()
 }
 
-export const adminExportBookingsCSV = async ({ from, to, room_id } = {}) => {
+export const adminExportBookingsCSV = async ({ from, to, room_id, status } = {}) => {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   if (room_id) params.set('room_id', room_id)
+  if (status) params.set('status', status)
   params.set('format', 'csv')
   const res = await fetch(`/api/admin/bookings?${params}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

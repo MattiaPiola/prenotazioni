@@ -39,6 +39,7 @@ export const handler = withErrorHandling(async function (event) {
     .from('bookings')
     .select('*')
     .eq('room_id', roomId)
+    .eq('status', 'active')
     .gte('date', date_from)
     .lte('date', date_to)
     .order('date')

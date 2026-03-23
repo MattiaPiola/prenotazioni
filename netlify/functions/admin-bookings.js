@@ -51,8 +51,9 @@ export const handler = withErrorHandling(async function (event) {
     const { teacher_name, class_name } = body
     if (!teacher_name || !teacher_name.trim()) return json(400, { error: 'teacher_name is required' })
 
-    const { data: existing } = await supabase.from('bookings').select('room_id, room_slot_id, date').eq('id', id).single()
+    const { data: existing } = await supabase.from('bookings').select('room_id, room_slot_id, date, status').eq('id', id).single()
     if (!existing) return json(404, { error: 'Booking not found' })
+    if (existing.status === 'cancelled') return json(409, { error: 'Impossibile modificare una prenotazione annullata.' })
     if (!ctx.is_superadmin) {
       try { await requireRoomAccess(ctx, existing.room_id, supabase) } catch (err) {
         return json(err.status || 403, { error: err.message })
@@ -122,6 +123,7 @@ export const handler = withErrorHandling(async function (event) {
       .eq('room_id', room_id)
       .eq('room_slot_id', room_slot_id)
       .eq('date', date)
+      .eq('status', 'active')
     if ((count || 0) >= maxBookings) {
       return json(409, { error: 'Questo slot è esaurito per la data selezionata.' })
     }
@@ -176,7 +178,10 @@ export const handler = withErrorHandling(async function (event) {
       .eq('type', 'locked')
       .maybeSingle()
     if (lockedSlotDel) return json(423, { error: 'Questo slot è bloccato. Sblocca prima di cancellare la prenotazione.' })
-    const { error } = await supabase.from('bookings').delete().eq('id', id)
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .eq('id', id)
     if (error) return json(500, { error: error.message })
     if (bookingToCancel) {
       await emitEvent('booking_cancelled', {
@@ -196,9 +201,12 @@ export const handler = withErrorHandling(async function (event) {
     const params = event.queryStringParameters || {}
     const permittedRoomIds = await getPermittedRoomIds(ctx, supabase)
 
+    const statusFilter = params.status === 'cancelled' ? 'cancelled' : 'active'
+
     let query = supabase
       .from('bookings')
       .select('*, rooms(name), room_slots(start_time, end_time)')
+      .eq('status', statusFilter)
       .order('date')
       .order('room_slots(start_time)')
 
@@ -221,16 +229,23 @@ export const handler = withErrorHandling(async function (event) {
     if (error) return json(500, { error: error.message })
 
     if (params.format === 'csv') {
-      const headers = ['date', 'room', 'slot', 'teacher', 'class', 'source', 'created_at']
-      const rows = data.map((b) => [
-        b.date,
-        b.rooms?.name || b.room_id,
-        b.room_slots ? `${b.room_slots.start_time}-${b.room_slots.end_time}` : b.room_slot_id,
-        b.teacher_name,
-        b.class_name,
-        b.source,
-        b.created_at,
-      ])
+      const isCancelled = statusFilter === 'cancelled'
+      const headers = isCancelled
+        ? ['date', 'room', 'slot', 'teacher', 'class', 'source', 'cancelled_at', 'created_at']
+        : ['date', 'room', 'slot', 'teacher', 'class', 'source', 'created_at']
+      const rows = data.map((b) => {
+        const base = [
+          b.date,
+          b.rooms?.name || b.room_id,
+          b.room_slots ? `${b.room_slots.start_time}-${b.room_slots.end_time}` : b.room_slot_id,
+          b.teacher_name,
+          b.class_name,
+          b.source,
+        ]
+        if (isCancelled) base.push(b.cancelled_at)
+        base.push(b.created_at)
+        return base
+      })
       const csv = [headers, ...rows].map((r) => r.map(escapeCsv).join(',')).join('\n')
       return {
         statusCode: 200,

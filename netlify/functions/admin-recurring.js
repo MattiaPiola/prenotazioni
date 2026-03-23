@@ -64,7 +64,7 @@ export const handler = withErrorHandling(async function (event) {
 
     const { error } = await supabase
       .from('bookings')
-      .delete()
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
       .eq('recurring_request_id', id)
     if (error) return json(500, { error: error.message })
 
@@ -143,6 +143,7 @@ export const handler = withErrorHandling(async function (event) {
         .eq('room_id', booking.room_id)
         .eq('room_slot_id', booking.room_slot_id)
         .eq('date', booking.date)
+        .eq('status', 'active')
       if (findErr) return json(500, { error: findErr.message })
 
       if (existing && existing.length >= maxBookings) {
@@ -187,7 +188,7 @@ export const handler = withErrorHandling(async function (event) {
       for (const { booking, existing } of conflictItems) {
         const { error: deleteErr } = await supabase
           .from('bookings')
-          .delete()
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
           .in('id', existing.map((b) => b.id))
         if (deleteErr) return json(500, { error: deleteErr.message })
         overwritten.push(booking.date)
@@ -337,7 +338,7 @@ export const handler = withErrorHandling(async function (event) {
     if (datesToRemove.length > 0) {
       const { error: delErr } = await supabase
         .from('bookings')
-        .delete()
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('recurring_request_id', id)
         .in('date', datesToRemove)
       if (delErr) return json(500, { error: delErr.message })
@@ -362,6 +363,7 @@ export const handler = withErrorHandling(async function (event) {
         .eq('room_id', req.room_id)
         .eq('room_slot_id', req.room_slot_id)
         .eq('date', date)
+        .eq('status', 'active')
       if (findErr) return json(500, { error: findErr.message })
       if (existing && existing.length >= maxBookings) {
         conflictItems.push({ date, existing })
@@ -393,7 +395,7 @@ export const handler = withErrorHandling(async function (event) {
       for (const { date, existing } of conflictItems) {
         const { error: deleteErr } = await supabase
           .from('bookings')
-          .delete()
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
           .in('id', existing.map((b) => b.id))
         if (deleteErr) return json(500, { error: deleteErr.message })
         overwritten.push(date)
@@ -462,6 +464,7 @@ export const handler = withErrorHandling(async function (event) {
         .eq('room_id', room_id)
         .eq('room_slot_id', room_slot_id)
         .eq('date', date)
+        .eq('status', 'active')
       if (findErr) return json(500, { error: findErr.message })
       if (existing && existing.length >= maxBookings) {
         conflictItems.push({ date, existing })
@@ -513,7 +516,10 @@ export const handler = withErrorHandling(async function (event) {
 
     if (action === 'force') {
       for (const { date, existing } of conflictItems) {
-        const { error: deleteErr } = await supabase.from('bookings').delete().in('id', existing.map((b) => b.id))
+        const { error: deleteErr } = await supabase
+          .from('bookings')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+          .in('id', existing.map((b) => b.id))
         if (deleteErr) return json(500, { error: deleteErr.message })
         overwritten.push(date)
         const { data, error } = await supabase
