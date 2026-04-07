@@ -112,6 +112,7 @@ export default function AdminRooms() {
       allow_user_edit: room.allow_user_edit || false,
       visible_weekdays: room.visible_weekdays || [0, 1, 2, 3, 4],
       emoji: room.emoji || '',
+      booking_weeks_ahead: room.booking_weeks_ahead ?? 1,
     })
   }
 
@@ -131,6 +132,7 @@ export default function AdminRooms() {
         allow_user_edit: settingsForm.allow_user_edit,
         visible_weekdays: settingsForm.visible_weekdays,
         emoji: settingsForm.emoji || null,
+        booking_weeks_ahead: Math.max(1, parseInt(settingsForm.booking_weeks_ahead, 10) || 1),
       })
       setSettingsId(null)
       load()
@@ -343,6 +345,22 @@ export default function AdminRooms() {
                                       {label}
                                     </label>
                                   ))}
+                                </div>
+                              </div>
+                              <div className="form-group">
+                                <label>Settimane future prenotabili</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={52}
+                                    value={settingsForm.booking_weeks_ahead ?? 1}
+                                    onChange={(e) => setSettingsForm({ ...settingsForm, booking_weeks_ahead: e.target.value === '' ? '' : parseInt(e.target.value, 10) })}
+                                    style={{ width: '5rem' }}
+                                  />
+                                  <span style={{ fontSize: '0.85rem', color: 'var(--gray-700)' }}>
+                                    settimane (oltre quella corrente)
+                                  </span>
                                 </div>
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>

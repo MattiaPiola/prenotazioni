@@ -91,16 +91,26 @@ export const handler = withErrorHandling(async function (event) {
     return jsonResp(400, { error: 'Missing required fields: room_id, room_slot_id, date, teacher_name' })
   }
 
-  // Validate date is within current or next week
+  // Validate date is within the room's allowed booking window
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const currentMonday = getMonday(today)
-  const nextSunday = new Date(currentMonday)
-  nextSunday.setDate(currentMonday.getDate() + 13) // 2 weeks - 1 day
+
+  // Fetch room to get booking_weeks_ahead
+  const { data: roomForValidation, error: roomErr } = await supabase
+    .from('rooms')
+    .select('booking_weeks_ahead')
+    .eq('id', room_id)
+    .single()
+  if (roomErr || !roomForValidation) return jsonResp(400, { error: 'Laboratorio non trovato.' })
+  const weeksAhead = roomForValidation.booking_weeks_ahead ?? 1
+
+  const lastAllowedDay = new Date(currentMonday)
+  lastAllowedDay.setDate(currentMonday.getDate() + (weeksAhead + 1) * 7 - 1)
 
   const bookingDate = new Date(date + 'T00:00:00')
-  if (bookingDate < currentMonday || bookingDate > nextSunday) {
-    return jsonResp(400, { error: 'La data deve essere nella settimana corrente o in quella successiva.' })
+  if (bookingDate < currentMonday || bookingDate > lastAllowedDay) {
+    return jsonResp(400, { error: 'La data selezionata non rientra nelle settimane disponibili per la prenotazione.' })
   }
 
   // Check if slot is blocked

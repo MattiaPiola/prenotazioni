@@ -48,7 +48,8 @@ export default function WeekView() {
     blockedSlots.find((b) => b.room_slot_id === slotId && b.date === date)
 
   const handleWeekChange = (offset) => {
-    if (offset < 0 || offset > 1) return
+    const maxOffset = room?.booking_weeks_ahead ?? 1
+    if (offset < 0 || offset > maxOffset) return
     setSearchParams({ week: offset })
   }
 
@@ -107,18 +108,18 @@ export default function WeekView() {
             <div className="week-nav">
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => handleWeekChange(0)}
+                onClick={() => handleWeekChange(weekOffset - 1)}
                 disabled={weekOffset === 0}
               >
-                ← Settimana corrente
+                ← Settimana precedente
               </button>
               <span className="week-nav-label">📅 {weekLabel}</span>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => handleWeekChange(1)}
-                disabled={weekOffset === 1}
+                onClick={() => handleWeekChange(weekOffset + 1)}
+                disabled={weekOffset >= (room?.booking_weeks_ahead ?? 1)}
               >
-                Prossima settimana →
+                Settimana successiva →
               </button>
             </div>
 
