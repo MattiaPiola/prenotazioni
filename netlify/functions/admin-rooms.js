@@ -64,6 +64,7 @@ export const handler = withErrorHandling(async function (event) {
         visible_weekdays: src.visible_weekdays,
         emoji: src.emoji || null,
         active: src.active,
+        booking_weeks_ahead: src.booking_weeks_ahead ?? 1,
       })
       .select()
       .single()
@@ -124,6 +125,7 @@ export const handler = withErrorHandling(async function (event) {
     if (body.emoji !== undefined) updates.emoji = body.emoji || null
     if (body.active !== undefined) updates.active = Boolean(body.active)
     if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10)
+    if (body.booking_weeks_ahead !== undefined) updates.booking_weeks_ahead = Math.max(1, parseInt(body.booking_weeks_ahead, 10) || 1)
     if (Object.keys(updates).length === 0) return json(400, { error: 'No fields to update' })
     const { data, error } = await supabase.from('rooms').update(updates).eq('id', roomId).select().single()
     if (error) return json(500, { error: error.message })
