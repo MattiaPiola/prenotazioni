@@ -127,14 +127,14 @@ export default function WeekView() {
           class_name: massForm.class_name.trim() || null,
         })
       } catch (err) {
-        errors.push(`${s.date} ${s.slot?.start_time ?? ''}: ${err.status === 409 ? 'slot già prenotato' : err.message}`)
+        errors.push(`${s.date} ${s.slot?.start_time ?? ''}–${s.slot?.end_time ?? ''}: ${err.status === 409 ? 'slot già prenotato' : err.message}`)
       }
     }
     setMassLoading(false)
     if (errors.length > 0) {
       setMassError(`Alcune prenotazioni non sono state create:\n${errors.join('\n')}`)
     } else {
-      setMassSuccess(`✅ ${selectedSlots.length} prenotazion${selectedSlots.length === 1 ? 'e creata' : 'i create'} con successo!`)
+      setMassSuccess(`✅ ${selectedSlots.length === 1 ? 'Prenotazione creata' : `${selectedSlots.length} prenotazioni create`} con successo!`)
     }
     load()
     setSelectedSlots([])
@@ -501,7 +501,7 @@ export default function WeekView() {
                 </div>
                 <div className="request-card-actions">
                   <button type="submit" className="btn btn-primary btn-sm" disabled={massLoading}>
-                    {massLoading ? '...' : `✅ Conferma ${selectedSlots.length} prenotazion${selectedSlots.length === 1 ? 'e' : 'i'}`}
+                    {massLoading ? '...' : `✅ Conferma ${selectedSlots.length === 1 ? 'prenotazione' : `${selectedSlots.length} prenotazioni`}`}
                   </button>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={handleCloseMassModal} disabled={massLoading}>
                     Annulla
