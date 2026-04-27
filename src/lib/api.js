@@ -226,3 +226,8 @@ export const adminUpdateNotificationRule = (id, data) =>
 
 export const adminDeleteNotificationRule = (id) =>
   apiFetch(`/api/admin/notification-rules/${id}`, { method: 'DELETE' })
+
+export const getSettings = () => apiFetch('/api/settings')
+
+export const adminUpdateSettings = (data) =>
+  apiFetch('/api/admin/settings', { method: 'PATCH', body: JSON.stringify(data) })
