@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import WeekView from './pages/WeekView.jsx'
@@ -13,11 +13,35 @@ import AdminBookings from './pages/AdminBookings.jsx'
 import AdminCalendar from './pages/AdminCalendar.jsx'
 import AdminUsers from './pages/AdminUsers.jsx'
 import AdminNotifications from './pages/AdminNotifications.jsx'
+import MaintenanceScreen from './pages/MaintenanceScreen.jsx'
+import { getSettings } from './lib/api.js'
 
 export const AdminContext = createContext({ is_superadmin: false })
 
 export function useAdminContext() {
   return useContext(AdminContext)
+}
+
+function MaintenanceGuard({ children }) {
+  const [maintenance, setMaintenance] = useState(false)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    getSettings()
+      .then((s) => setMaintenance(Boolean(s?.maintenance_mode)))
+      .catch(() => {})
+      .finally(() => setChecked(true))
+  }, [])
+
+  if (!checked) {
+    return (
+      <div className="loading" style={{ minHeight: '100vh', justifyContent: 'center' }}>
+        <div className="spinner" />
+      </div>
+    )
+  }
+  if (maintenance) return <MaintenanceScreen />
+  return children
 }
 
 function AdminGuard({ children }) {
@@ -61,10 +85,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/week/:roomId" element={<WeekView />} />
-        <Route path="/room/:roomId/book" element={<BookingForm />} />
-        <Route path="/room/:roomId/recurring" element={<RecurringForm />} />
+        <Route path="/" element={<MaintenanceGuard><Home /></MaintenanceGuard>} />
+        <Route path="/week/:roomId" element={<MaintenanceGuard><WeekView /></MaintenanceGuard>} />
+        <Route path="/room/:roomId/book" element={<MaintenanceGuard><BookingForm /></MaintenanceGuard>} />
+        <Route path="/room/:roomId/recurring" element={<MaintenanceGuard><RecurringForm /></MaintenanceGuard>} />
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
         <Route path="/admin/rooms" element={<AdminGuard><AdminRooms /></AdminGuard>} />

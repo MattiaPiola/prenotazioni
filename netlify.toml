@@ -139,6 +139,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/admin/settings"
+  to = "/.netlify/functions/admin-settings"
+  status = 200
+
+[[redirects]]
+  from = "/api/settings"
+  to = "/.netlify/functions/settings"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

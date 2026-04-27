@@ -1,10 +1,20 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { adminLogout } from '../lib/api.js'
+import { adminLogout, getSettings, adminUpdateSettings } from '../lib/api.js'
 import { useAdminContext } from '../App.jsx'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const { is_superadmin } = useAdminContext()
+  const [maintenance, setMaintenance] = useState(false)
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!is_superadmin) return
+    getSettings()
+      .then((s) => setMaintenance(Boolean(s?.maintenance_mode)))
+      .catch(() => {})
+  }, [is_superadmin])
 
   const handleLogout = async () => {
     try {
@@ -13,6 +23,15 @@ export default function AdminDashboard() {
     localStorage.removeItem('admin_authenticated')
     localStorage.removeItem('admin_is_superadmin')
     navigate('/admin', { replace: true })
+  }
+
+  const handleToggleMaintenance = async () => {
+    setMaintenanceLoading(true)
+    try {
+      await adminUpdateSettings({ maintenance_mode: !maintenance })
+      setMaintenance((prev) => !prev)
+    } catch (_) {}
+    setMaintenanceLoading(false)
   }
 
   const sections = [
@@ -71,6 +90,27 @@ export default function AdminDashboard() {
                   </div>
                 </Link>
               ))}
+            </div>
+
+            <div className={`maintenance-toggle-bar${maintenance ? ' maintenance-toggle-bar--active' : ''}`}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  🔧 Modalità manutenzione
+                </div>
+                <div style={{ fontSize: '0.8rem', color: maintenance ? 'var(--white)' : 'var(--gray-700)', marginTop: '0.15rem' }}>
+                  {maintenance
+                    ? 'Attiva — il sito pubblico mostra la schermata di manutenzione'
+                    : 'Disattivata — il sito pubblico è accessibile normalmente'}
+                </div>
+              </div>
+              <button
+                className={`btn${maintenance ? ' btn-danger' : ' btn-primary'}`}
+                onClick={handleToggleMaintenance}
+                disabled={maintenanceLoading}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {maintenanceLoading ? '...' : maintenance ? 'Disattiva' : 'Attiva'}
+              </button>
             </div>
           </div>
         )}
